@@ -238,9 +238,9 @@
             <div class="card">
                 <h2 class="card-title">📋 Assignment CS ke CRM</h2>
                 
-                <!-- Date Filter -->
+                <!-- Date + Sumber Filter -->
                 <div style="margin-bottom: 24px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
-                    <label class="form-label">📅 Filter Data Berdasarkan Tanggal Upload</label>
+                    <label class="form-label">📅 Filter CS: Tanggal + Sumber Validasi</label>
                     <div style="display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 12px; align-items: end;">
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label" style="font-size: 12px;">Dari Tanggal</label>
@@ -258,7 +258,7 @@
                         </button>
                     </div>
                     <div style="margin-top: 12px; font-size: 12px; color: #64748b;">
-                        💡 Tip: Pilih range tanggal untuk load CS dari periode tertentu, atau klik "Semua CS" untuk load semua (mungkin lambat jika data >100k)
+                        💡 Load CS dari orderan dengan <strong>Sumber = Validasi</strong> di periode tanggal yang dipilih
                     </div>
                 </div>
 
@@ -515,7 +515,6 @@
             } else if (role === 'admin') {
                 document.getElementById('adminView').classList.remove('hidden');
                 document.getElementById('adminUsername').textContent = currentUser.username;
-                // Tidak auto-load CS, tunggu user pilih date range
                 await loadUsers();
                 await loadAssignments();
                 renderAdminCRMSelect();
@@ -616,67 +615,52 @@
             }
 
             try {
-                // Convert to UTC timezone for proper filtering
-                // Indonesia WIB = UTC+7, so we need to adjust
+                // Convert to UTC timezone for WIB
                 const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
                 const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
                 
-                console.log('🔍 Loading CS for date range:', {
-                    localDate: `${dateFrom} - ${dateTo}`,
-                    utcRange: `${dateFromUTC} - ${dateToUTC}`
+                console.log('🔍 Loading CS:', {
+                    dateRange: `${dateFrom} - ${dateTo}`,
+                    utcRange: `${dateFromUTC} - ${dateToUTC}`,
+                    sumber: 'Validasi'
                 });
                 
-                // Fetch ALL data with pagination (Supabase max per page = 1000)
-                let allData = [];
-                let page = 0;
-                const pageSize = 1000;
-                let hasMore = true;
+                // Filter by DATE + SUMBER
+                const { data, error, count } = await sbData
+                    .from('all_orderan')
+                    .select('cs', { count: 'exact' })
+                    .eq('Sumber', 'Validasi')  // Filter Sumber = Validasi
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(0, 99999);
                 
-                while (hasMore) {
-                    const { data, error, count } = await sbData
-                        .from('all_orderan')
-                        .select('cs', { count: 'exact' })
-                        .gte('created_at', dateFromUTC)
-                        .lte('created_at', dateToUTC)
-                        .range(page * pageSize, (page + 1) * pageSize - 1);
-                    
-                    if (error) throw error;
-                    
-                    if (data && data.length > 0) {
-                        allData = allData.concat(data);
-                        console.log(`📄 Page ${page + 1}: fetched ${data.length} rows (total so far: ${allData.length})`);
-                        
-                        // Stop if we got less than pageSize (last page)
-                        if (data.length < pageSize) {
-                            hasMore = false;
-                        } else {
-                            page++;
-                        }
-                    } else {
-                        hasMore = false;
-                    }
-                }
-                
-                console.log('📊 Total fetched:', {
-                    totalRows: allData.length,
-                    pages: page + 1
+                console.log('📊 Query result:', {
+                    totalRows: data?.length || 0,
+                    totalCount: count,
+                    error: error
                 });
                 
-                if (allData.length > 0) {
-                    // Get unique CS from results
-                    const uniqueCS = [...new Set(allData.map(d => d.cs).filter(Boolean))];
-                    allCS = uniqueCS.sort();
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    // Get unique CS
+                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
                     
                     console.log('✅ Unique CS found:', {
                         totalCS: allCS.length,
                         csList: allCS,
-                        fromOrderan: allData.length
+                        fromOrderan: data.length,
+                        totalInDB: count
                     });
                     
                     updateAdminCSTotal();
                     
-                    let message = `✅ Berhasil load ${allCS.length} CS dari ${allData.length} orderan`;
+                    let message = `✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`;
+                    if (count > data.length) {
+                        message += `\n⚠️ Total di DB: ${count} (loaded: ${data.length})`;
+                    }
                     message += `\nPeriode: ${dateFrom} - ${dateTo} (WIB)`;
+                    message += `\nSumber: Validasi`;
                     
                     alert(message);
                     
@@ -685,8 +669,8 @@
                         document.getElementById('adminCsSelection').classList.remove('hidden');
                     }
                 } else {
-                    console.warn('⚠️ No data found for date range');
-                    alert('❌ Tidak ada data di periode tersebut!');
+                    console.warn('⚠️ No data found');
+                    alert('❌ Tidak ada data di periode tersebut dengan Sumber = Validasi!');
                 }
             } catch (error) {
                 console.error('❌ Error loading CS:', error);
