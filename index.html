@@ -616,56 +616,61 @@
             }
 
             try {
-                // Use RPC for better performance with DISTINCT
-                const { data, error } = await sbData.rpc('get_distinct_cs_by_date', {
-                    date_from: dateFrom,  // Pass as DATE string (2025-01-08)
-                    date_to: dateTo
-                });
-                
-                // Fallback if RPC doesn't exist
-                if (error && error.code === '42883') {
-                    console.log('Using fallback query...');
-                    // Fetch with high limit and do distinct in JS
-                    const result = await sbData.from('all_orderan')
-                        .select('cs')
-                        .gte('created_at', dateFrom + 'T00:00:00')
-                        .lte('created_at', dateTo + 'T23:59:59')
-                        .limit(100000);
-                    
-                    if (result.error) throw result.error;
-                    
-                    if (result.data && result.data.length > 0) {
-                        allCS = [...new Set(result.data.map(d => d.cs).filter(Boolean))].sort();
-                        updateAdminCSTotal();
-                        alert(`✅ Berhasil load ${allCS.length} CS dari ${result.data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
-                        
-                        if (currentCRM) {
-                            renderAdminCSGrid();
-                            document.getElementById('adminCsSelection').classList.remove('hidden');
-                        }
-                    } else {
-                        alert('❌ Tidak ada data di periode tersebut!');
-                    }
-                    return;
-                }
+                // Direct query with date casting using Postgres functions
+                const { data, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs')
+                    .gte('created_at', dateFrom + 'T00:00:00')
+                    .lte('created_at', dateTo + 'T23:59:59')
+                    .limit(100000);
                 
                 if (error) throw error;
                 
                 if (data && data.length > 0) {
-                    allCS = data.map(d => d.cs).filter(Boolean).sort();
+                    // Get unique CS from results
+                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
                     updateAdminCSTotal();
-                    alert(`✅ Berhasil load ${allCS.length} CS\nPeriode: ${dateFrom} - ${dateTo}`);
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
                     
                     if (currentCRM) {
                         renderAdminCSGrid();
                         document.getElementById('adminCsSelection').classList.remove('hidden');
                     }
                 } else {
-                    alert('❌ Tidak ada CS di periode tersebut!');
+                    alert('❌ Tidak ada data di periode tersebut!');
                 }
             } catch (error) {
                 console.error('Error loading CS:', error);
                 alert('Error loading data: ' + error.message);
+            }
+        }
+
+        async function loadAllCSNow() {
+            if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
+            
+            try {
+                const { data, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs')
+                    .limit(100000);
+                
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    updateAdminCSTotal();
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
+                    
+                    if (currentCRM) {
+                        renderAdminCSGrid();
+                        document.getElementById('adminCsSelection').classList.remove('hidden');
+                    }
+                } else {
+                    alert('❌ Tidak ada data!');
+                }
+            } catch (error) {
+                console.error('Error loading CS:', error);
+                alert('Error: ' + error.message);
             }
         }
 
