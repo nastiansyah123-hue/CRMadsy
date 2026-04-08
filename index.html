@@ -626,41 +626,56 @@
                     utcRange: `${dateFromUTC} - ${dateToUTC}`
                 });
                 
-                // Use range() to override default 1000 limit
-                const { data, error, count } = await sbData
-                    .from('all_orderan')
-                    .select('cs', { count: 'exact' })
-                    .gte('created_at', dateFromUTC)
-                    .lte('created_at', dateToUTC)
-                    .range(0, 99999); // Fetch up to 100k rows
+                // Fetch ALL data with pagination (Supabase max per page = 1000)
+                let allData = [];
+                let page = 0;
+                const pageSize = 1000;
+                let hasMore = true;
                 
-                console.log('📊 Query result:', {
-                    totalRows: data?.length || 0,
-                    totalCount: count,
-                    error: error,
-                    sampleData: data?.slice(0, 5)
+                while (hasMore) {
+                    const { data, error, count } = await sbData
+                        .from('all_orderan')
+                        .select('cs', { count: 'exact' })
+                        .gte('created_at', dateFromUTC)
+                        .lte('created_at', dateToUTC)
+                        .range(page * pageSize, (page + 1) * pageSize - 1);
+                    
+                    if (error) throw error;
+                    
+                    if (data && data.length > 0) {
+                        allData = allData.concat(data);
+                        console.log(`📄 Page ${page + 1}: fetched ${data.length} rows (total so far: ${allData.length})`);
+                        
+                        // Stop if we got less than pageSize (last page)
+                        if (data.length < pageSize) {
+                            hasMore = false;
+                        } else {
+                            page++;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
+                }
+                
+                console.log('📊 Total fetched:', {
+                    totalRows: allData.length,
+                    pages: page + 1
                 });
                 
-                if (error) throw error;
-                
-                if (data && data.length > 0) {
+                if (allData.length > 0) {
                     // Get unique CS from results
-                    const uniqueCS = [...new Set(data.map(d => d.cs).filter(Boolean))];
+                    const uniqueCS = [...new Set(allData.map(d => d.cs).filter(Boolean))];
                     allCS = uniqueCS.sort();
                     
                     console.log('✅ Unique CS found:', {
                         totalCS: allCS.length,
                         csList: allCS,
-                        fromOrderan: data.length,
-                        totalInDB: count
+                        fromOrderan: allData.length
                     });
                     
                     updateAdminCSTotal();
                     
-                    let message = `✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`;
-                    if (count > data.length) {
-                        message += `\n⚠️ Total data di DB: ${count} (hanya ${data.length} yang di-load)`;
-                    }
+                    let message = `✅ Berhasil load ${allCS.length} CS dari ${allData.length} orderan`;
                     message += `\nPeriode: ${dateFrom} - ${dateTo} (WIB)`;
                     
                     alert(message);
