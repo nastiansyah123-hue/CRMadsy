@@ -237,6 +237,28 @@
 
             <div class="card">
                 <h2 class="card-title">📋 Assignment CS ke CRM</h2>
+                
+                <!-- Date Filter -->
+                <div style="margin-bottom: 24px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                    <label class="form-label">📅 Filter Data Berdasarkan Tanggal Upload</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label" style="font-size: 12px;">Dari Tanggal</label>
+                            <input type="date" id="adminDateFrom" class="form-input">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label" style="font-size: 12px;">Sampai Tanggal</label>
+                            <input type="date" id="adminDateTo" class="form-input">
+                        </div>
+                        <button onclick="loadCSByDateRange()" class="btn btn-primary">
+                            🔍 Load CS
+                        </button>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 12px; color: #64748b;">
+                        💡 Tip: Pilih range tanggal untuk load CS dari data di periode tersebut (lebih cepat untuk data besar)
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">Pilih CRM User</label>
                     <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
@@ -244,7 +266,7 @@
                     </select>
                 </div>
                 <div id="adminCsSelection" class="hidden">
-                    <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih)</label>
+                    <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih) <span id="adminCSTotal" style="color: #64748b; font-weight: 400;"></span></label>
                     <div id="adminCsGrid" class="cs-grid"></div>
                     <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
                 </div>
@@ -490,11 +512,18 @@
             } else if (role === 'admin') {
                 document.getElementById('adminView').classList.remove('hidden');
                 document.getElementById('adminUsername').textContent = currentUser.username;
-                await loadAllCS();
+                // Tidak auto-load CS, tunggu user pilih date range
                 await loadUsers();
                 await loadAssignments();
                 renderAdminCRMSelect();
                 renderAdminAssignmentList();
+                
+                // Set default date (last 7 days)
+                const today = new Date();
+                const lastWeek = new Date(today);
+                lastWeek.setDate(lastWeek.getDate() - 7);
+                document.getElementById('adminDateTo').value = today.toISOString().split('T')[0];
+                document.getElementById('adminDateFrom').value = lastWeek.toISOString().split('T')[0];
             } else if (role === 'spv') {
                 document.getElementById('spvView').classList.remove('hidden');
                 document.getElementById('spvUsername').textContent = currentUser.username;
@@ -566,8 +595,57 @@
 
         // CS & Assignment
         async function loadAllCS() {
-            const { data } = await sbData.from('all_orderan').select('cs');
-            if (data) allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+            // Load tanpa filter (untuk backward compatibility)
+            const { data } = await sbData.from('all_orderan').select('cs').limit(10000);
+            if (data) {
+                allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                updateAdminCSTotal();
+            }
+        }
+
+        async function loadCSByDateRange() {
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
+
+            if (!dateFrom || !dateTo) {
+                alert('Pilih tanggal dari dan sampai!');
+                return;
+            }
+
+            try {
+                let query = sbData.from('all_orderan').select('cs');
+                
+                // Filter by date range
+                query = query.gte('Tanggal', dateFrom).lte('Tanggal', dateTo);
+                
+                const { data, error } = await query;
+                
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    updateAdminCSTotal();
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
+                    
+                    // Auto render CS grid if CRM selected
+                    if (currentCRM) {
+                        renderAdminCSGrid();
+                        document.getElementById('adminCsSelection').classList.remove('hidden');
+                    }
+                } else {
+                    alert('❌ Tidak ada data di periode tersebut!');
+                }
+            } catch (error) {
+                console.error('Error loading CS:', error);
+                alert('Error loading data: ' + error.message);
+            }
+        }
+
+        function updateAdminCSTotal() {
+            const totalEl = document.getElementById('adminCSTotal');
+            if (totalEl) {
+                totalEl.textContent = `(Total: ${allCS.length} CS)`;
+            }
         }
 
         async function loadAssignments() {
