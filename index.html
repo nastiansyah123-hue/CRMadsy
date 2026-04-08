@@ -615,8 +615,8 @@
             try {
                 let query = sbData.from('all_orderan').select('cs');
                 
-                // Filter by date range
-                query = query.gte('Tanggal', dateFrom).lte('Tanggal', dateTo);
+                // Filter by date range using created_at column
+                query = query.gte('created_at', dateFrom).lte('created_at', dateTo);
                 
                 const { data, error } = await query;
                 
@@ -777,7 +777,7 @@
             const assignedCS = assignments[currentUser.username];
             document.getElementById('crmSubtitle').textContent = `CS: ${assignedCS.join(', ')}`;
             
-            const { data } = await sbData.from('all_orderan').select('*').in('cs', assignedCS).order('Tanggal', { ascending: false });
+            const { data } = await sbData.from('all_orderan').select('*').in('cs', assignedCS).order('created_at', { ascending: false });
             if (data) {
                 orders = data;
                 filterOrders();
