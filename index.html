@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRM System - Multi Role</title>
+    <title>CRM System</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'JetBrains Mono', monospace; -webkit-font-smoothing: antialiased; }
+        body { font-family: 'JetBrains Mono', monospace; }
         .hidden { display: none !important; }
 
-        /* Login View */
         #loginView {
             min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -36,24 +35,11 @@
             background: linear-gradient(135deg, #667eea, #764ba2);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 8px;
-        }
-
-        .login-subtitle {
-            font-size: 14px;
-            color: #64748b;
             margin-bottom: 32px;
         }
 
         .form-group { margin-bottom: 20px; }
-        .form-label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: #334155;
-            margin-bottom: 8px;
-        }
-
+        .form-label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; }
         .form-input, .form-select {
             width: 100%;
             padding: 12px 16px;
@@ -62,10 +48,8 @@
             font-size: 14px;
             font-family: inherit;
             outline: none;
-            background: white;
         }
-
-        .form-input:focus, .form-select:focus { border-color: #667eea; }
+        .form-input:focus { border-color: #667eea; }
 
         .btn {
             padding: 14px 32px;
@@ -75,31 +59,15 @@
             font-weight: 700;
             cursor: pointer;
             font-family: inherit;
-            transition: all 0.3s;
         }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-        }
-
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
         .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; }
         .btn-secondary { background: #f1f5f9; color: #475569; }
         .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
         .btn-small { padding: 6px 12px; font-size: 11px; }
 
-        /* Main Layout */
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        
-        #adminView, #spvView, #crmView {
-            min-height: 100vh;
-            background: #f8fafc;
-        }
+        #adminView, #spvView, #crmView { min-height: 100vh; background: #f8fafc; }
 
         .header {
             background: white;
@@ -122,19 +90,9 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .user-info { display: flex; align-items: center; gap: 12px; }
 
-        .role-badge {
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
+        .role-badge { padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         .role-admin { background: #fef3c7; color: #92400e; }
         .role-spv { background: #dbeafe; color: #1e40af; }
         .role-crm { background: #d1fae5; color: #065f46; }
@@ -147,12 +105,7 @@
             margin-bottom: 24px;
         }
 
-        .card-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 24px;
-            color: #1e293b;
-        }
+        .card-title { font-size: 18px; font-weight: 700; margin-bottom: 24px; color: #1e293b; }
 
         .cs-grid {
             display: grid;
@@ -168,9 +121,7 @@
             border: 2px solid #e2e8f0;
             border-radius: 10px;
             cursor: pointer;
-            background: white;
         }
-
         .cs-checkbox.selected { border-color: #667eea; background: #f0f4ff; }
 
         .stats-grid {
@@ -180,13 +131,7 @@
             margin-bottom: 24px;
         }
 
-        .stat-card {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
+        .stat-card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .stat-value { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
 
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -196,13 +141,7 @@
         td { border-bottom: 1px solid #f1f5f9; }
         tbody tr:hover { background: #f8fafc; }
 
-        .badge {
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
         .badge-cod { background: #fef3c7; color: #92400e; }
         .badge-transfer { background: #dbeafe; color: #1e40af; }
         .badge-delivered { background: #d1fae5; color: #065f46; }
@@ -231,11 +170,7 @@
             overflow: auto;
         }
 
-        .user-list {
-            display: grid;
-            gap: 12px;
-        }
-
+        .user-list { display: grid; gap: 12px; }
         .user-item {
             padding: 16px;
             background: #f8fafc;
@@ -266,10 +201,6 @@
             font-size: 14px;
             font-family: inherit;
         }
-
-        @media (max-width: 768px) {
-            .stats-grid { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>
@@ -277,36 +208,25 @@
     <div id="loginView">
         <div class="login-card">
             <div class="login-title">CRM System</div>
-            <div class="login-subtitle">Login dengan role Anda</div>
-            
             <div class="form-group">
                 <label class="form-label">Username</label>
-                <input type="text" id="loginUsername" class="form-input" placeholder="Username">
+                <input type="text" id="loginUsername" class="form-input">
             </div>
-            
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" id="loginPassword" class="form-input" placeholder="Password">
+                <input type="password" id="loginPassword" class="form-input">
             </div>
-            
             <button onclick="login()" class="btn btn-primary" style="width: 100%;">LOGIN</button>
-            
-            <div style="margin-top: 24px; padding: 16px; background: #f1f5f9; border-radius: 12px; font-size: 12px; color: #64748b; line-height: 1.6;">
-                <strong style="color: #334155;">👤 Default Users:</strong><br>
-                Admin Data: admin / admin123<br>
-                SPV: spv / spv123<br>
-                CRM: crm1 / crm123
-            </div>
         </div>
     </div>
 
-    <!-- Admin View -->
+    <!-- Admin Data View -->
     <div id="adminView" class="hidden">
         <div class="container">
             <div class="header">
                 <div>
                     <h1 class="header-title">Admin Data Panel</h1>
-                    <p style="color: #64748b; font-size: 14px;">Kelola users, Supabase config & Assignment CS ke CRM</p>
+                    <p style="color: #64748b; font-size: 14px;">Assignment CS ke CRM</p>
                 </div>
                 <div class="user-info">
                     <span class="role-badge role-admin">ADMIN DATA</span>
@@ -315,28 +235,6 @@
                 </div>
             </div>
 
-            <!-- Supabase Config -->
-            <div class="card">
-                <h2 class="card-title">🔧 Konfigurasi Supabase</h2>
-                <div class="form-group">
-                    <label class="form-label">Supabase URL</label>
-                    <input type="text" id="adminSupabaseUrl" class="form-input" placeholder="https://xxx.supabase.co">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Supabase Anon Key</label>
-                    <input type="password" id="adminSupabaseKey" class="form-input" placeholder="eyJhbGc...">
-                </div>
-                <button onclick="saveSupabaseConfig()" class="btn btn-success">💾 Simpan Konfigurasi</button>
-            </div>
-
-            <!-- User Management -->
-            <div class="card">
-                <h2 class="card-title">👥 Manajemen User</h2>
-                <button onclick="showAddUserModal()" class="btn btn-primary" style="margin-bottom: 16px;">+ Tambah User</button>
-                <div id="userList" class="user-list"></div>
-            </div>
-
-            <!-- CS Assignment -->
             <div class="card">
                 <h2 class="card-title">📋 Assignment CS ke CRM</h2>
                 <div class="form-group">
@@ -348,11 +246,10 @@
                 <div id="adminCsSelection" class="hidden">
                     <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih)</label>
                     <div id="adminCsGrid" class="cs-grid"></div>
-                    <button onclick="saveAdminAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
+                    <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
                 </div>
             </div>
 
-            <!-- Current Assignments -->
             <div class="card">
                 <h2 class="card-title">Assignment Saat Ini</h2>
                 <div id="adminAssignmentList"></div>
@@ -360,13 +257,13 @@
         </div>
     </div>
 
-    <!-- SPV View - Monitoring Only -->
+    <!-- SPV View -->
     <div id="spvView" class="hidden">
         <div class="container">
             <div class="header">
                 <div>
-                    <h1 class="header-title">SPV Monitoring</h1>
-                    <p style="color: #64748b; font-size: 14px;">Monitor Assignment & Performance</p>
+                    <h1 class="header-title">SPV Panel</h1>
+                    <p style="color: #64748b; font-size: 14px;">Kelola User & Monitor Assignment</p>
                 </div>
                 <div class="user-info">
                     <span class="role-badge role-spv">SPV</span>
@@ -375,20 +272,21 @@
                 </div>
             </div>
 
-            <!-- Assignment Overview -->
+            <div class="card">
+                <h2 class="card-title">👥 Manajemen User</h2>
+                <button onclick="showAddUserModal()" class="btn btn-primary" style="margin-bottom: 16px;">+ Tambah User</button>
+                <div id="userList" class="user-list"></div>
+            </div>
+
             <div class="card">
                 <h2 class="card-title">📊 Assignment Overview</h2>
                 <div id="spvAssignmentList"></div>
             </div>
 
-            <!-- Stats per CRM -->
             <div class="card">
                 <h2 class="card-title">📈 Statistik per CRM</h2>
                 <div id="spvStatsGrid" class="stats-grid"></div>
             </div>
-        </div>
-    </div>
-
         </div>
     </div>
 
@@ -403,7 +301,7 @@
                 <div class="user-info">
                     <span class="role-badge role-crm">CRM</span>
                     <span id="crmUsername" style="font-weight: 600;"></span>
-                    <button onclick="loadOrders()" class="btn btn-primary btn-small">🔄 Refresh</button>
+                    <button onclick="loadOrders()" class="btn btn-primary btn-small">🔄</button>
                     <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
                 </div>
             </div>
@@ -412,7 +310,7 @@
                 <div class="stat-card" style="border-left: 4px solid #667eea;">
                     <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
                     <div class="stat-value" style="color: #667eea;" id="statTotal">0</div>
-                    <div style="font-size: 13px; color: #64748b;">Total Orders</div>
+                    <div style="font-size: 13px; color: #64748b;">Total</div>
                 </div>
                 <div class="stat-card" style="border-left: 4px solid #f59e0b;">
                     <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
@@ -432,9 +330,9 @@
             </div>
 
             <div class="filters">
-                <input type="text" id="crmSearch" class="search-input" placeholder="🔍 Cari nama, HP, resi..." onkeyup="filterOrders()">
+                <input type="text" id="crmSearch" class="search-input" placeholder="🔍 Cari..." onkeyup="filterOrders()">
                 <select id="crmFilter" class="form-select" onchange="filterOrders()">
-                    <option value="all">Semua Status</option>
+                    <option value="all">Semua</option>
                     <option value="Pending">Pending</option>
                     <option value="Processing">Processing</option>
                     <option value="Shipped">Shipped</option>
@@ -453,7 +351,7 @@
                         </tr>
                     </thead>
                     <tbody id="crmTbody">
-                        <tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada data</td></tr>
+                        <tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -463,7 +361,7 @@
     <!-- Add User Modal -->
     <div id="addUserModal" class="modal hidden">
         <div class="modal-content">
-            <h2 style="font-size: 20px; margin-bottom: 24px;">Tambah User Baru</h2>
+            <h2 style="font-size: 20px; margin-bottom: 24px;">Tambah User</h2>
             <div style="display: grid; gap: 16px; margin-bottom: 24px;">
                 <div class="form-group">
                     <label class="form-label">Username</label>
@@ -476,20 +374,19 @@
                 <div class="form-group">
                     <label class="form-label">Role</label>
                     <select id="newRole" class="form-select">
-                        <option value="admin">Admin</option>
-                        <option value="spv">SPV</option>
+                        <option value="admin">Admin Data</option>
                         <option value="crm">CRM</option>
                     </select>
                 </div>
             </div>
             <div style="display: flex; gap: 12px;">
-                <button onclick="addUser()" class="btn btn-success" style="flex: 1;">💾 Tambah</button>
+                <button onclick="addUser()" class="btn btn-success" style="flex: 1;">Tambah</button>
                 <button onclick="closeAddUserModal()" class="btn btn-secondary" style="flex: 1;">Batal</button>
             </div>
         </div>
     </div>
 
-    <!-- Edit Order Modal -->
+    <!-- Edit Modal -->
     <div id="editModal" class="modal hidden">
         <div class="modal-content">
             <h2 id="editModalTitle" style="font-size: 20px; margin-bottom: 24px;">Edit Order</h2>
@@ -519,15 +416,20 @@
                 </div>
             </div>
             <div style="display: flex; gap: 12px;">
-                <button onclick="updateOrder()" class="btn btn-success" style="flex: 1;">💾 Simpan</button>
+                <button onclick="updateOrder()" class="btn btn-success" style="flex: 1;">Simpan</button>
                 <button onclick="closeEditModal()" class="btn btn-secondary" style="flex: 1;">Batal</button>
             </div>
         </div>
     </div>
 
     <script>
+        // SUPABASE CONFIG - Dari environment variable
+        const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'https://YOUR_PROJECT.supabase.co';
+        const SUPABASE_KEY = window.ENV?.SUPABASE_KEY || 'YOUR_ANON_KEY';
+
         const { createClient } = supabase;
-        let sb = null;
+        const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
         let currentUser = null;
         let users = [];
         let allCS = [];
@@ -538,85 +440,27 @@
         let filtered = [];
         let editId = null;
 
-        // Initialize
-        function init() {
-            loadUsers();
-            loadSupabaseConfig();
-        }
-
-        // Storage helpers
-        function saveToStorage(key, value) {
-            localStorage.setItem(key, JSON.stringify(value));
-        }
-
-        function getFromStorage(key) {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
-        }
-
-        // Load users from localStorage
-        function loadUsers() {
-            users = getFromStorage('crm_users') || [
-                { username: 'admin', password: 'admin123', role: 'admin' },
-                { username: 'spv', password: 'spv123', role: 'spv' },
-                { username: 'crm1', password: 'crm123', role: 'crm' },
-                { username: 'crm2', password: 'crm123', role: 'crm' }
-            ];
-            saveToStorage('crm_users', users);
-        }
-
-        // Load Supabase config
-        function loadSupabaseConfig() {
-            const config = getFromStorage('supabase_config');
-            if (config && config.url && config.key) {
-                sb = createClient(config.url, config.key);
-                document.getElementById('adminSupabaseUrl').value = config.url;
-                document.getElementById('adminSupabaseKey').value = config.key;
-            }
-        }
-
-        // Save Supabase config
-        async function saveSupabaseConfig() {
-            const url = document.getElementById('adminSupabaseUrl').value.trim();
-            const key = document.getElementById('adminSupabaseKey').value.trim();
-            
-            if (!url || !key) return alert('Isi URL & Key!');
-            
-            try {
-                const testSb = createClient(url, key);
-                const { error } = await testSb.from('all_orderan').select('*').limit(1);
-                if (error) throw error;
-                
-                saveToStorage('supabase_config', { url, key });
-                sb = testSb;
-                alert('✅ Konfigurasi Supabase berhasil disimpan!');
-            } catch (e) {
-                alert('❌ Koneksi gagal: ' + e.message);
-            }
-        }
-
-        // Login
-        function login() {
+        // Auth
+        async function login() {
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
             
-            const user = users.find(u => u.username === username && u.password === password);
-            if (!user) return alert('Username atau password salah!');
+            const { data } = await sb.from('users').select('*').eq('username', username).eq('password', password).single();
             
-            currentUser = user;
-            saveToStorage('current_user', user);
+            if (!data) return alert('Username/password salah!');
             
-            showView(user.role);
+            currentUser = data;
+            sessionStorage.setItem('user', JSON.stringify(data));
+            showView(data.role);
         }
 
-        // Logout
         function logout() {
             currentUser = null;
-            localStorage.removeItem('current_user');
+            sessionStorage.removeItem('user');
             showView('login');
         }
 
-        // Show view based on role
+        // View Router
         async function showView(role) {
             ['loginView', 'adminView', 'spvView', 'crmView'].forEach(v => 
                 document.getElementById(v).classList.add('hidden')
@@ -625,46 +469,45 @@
             if (role === 'login') {
                 document.getElementById('loginView').classList.remove('hidden');
             } else if (role === 'admin') {
-                if (!sb) {
-                    document.getElementById('adminView').classList.remove('hidden');
-                    document.getElementById('adminUsername').textContent = currentUser.username;
-                    renderUserList();
-                    return;
-                }
                 document.getElementById('adminView').classList.remove('hidden');
                 document.getElementById('adminUsername').textContent = currentUser.username;
-                renderUserList();
                 await loadAllCS();
+                await loadUsers();
                 await loadAssignments();
                 renderAdminCRMSelect();
                 renderAdminAssignmentList();
             } else if (role === 'spv') {
-                if (!sb) return alert('Supabase belum dikonfigurasi! Hubungi admin data.');
                 document.getElementById('spvView').classList.remove('hidden');
                 document.getElementById('spvUsername').textContent = currentUser.username;
+                await loadUsers();
                 await loadAssignments();
                 await loadSPVStats();
+                renderUserList();
                 renderSPVAssignmentList();
             } else if (role === 'crm') {
-                if (!sb) return alert('Supabase belum dikonfigurasi! Hubungi admin data.');
                 document.getElementById('crmView').classList.remove('hidden');
                 document.getElementById('crmUsername').textContent = currentUser.username;
-                document.getElementById('crmTitle').textContent = `${currentUser.username.toUpperCase()} Dashboard`;
+                document.getElementById('crmTitle').textContent = currentUser.username.toUpperCase();
                 await loadAssignments();
                 await loadOrders();
             }
         }
 
-        // User Management
+        // User Management (SPV only)
+        async function loadUsers() {
+            const { data } = await sb.from('users').select('*').order('username');
+            if (data) users = data;
+        }
+
         function renderUserList() {
             const list = document.getElementById('userList');
-            list.innerHTML = users.map((u, i) => `
+            list.innerHTML = users.map(u => `
                 <div class="user-item">
                     <div>
                         <strong>${u.username}</strong>
                         <span class="role-badge role-${u.role}" style="margin-left: 8px;">${u.role.toUpperCase()}</span>
                     </div>
-                    <button onclick="deleteUser(${i})" class="btn btn-danger btn-small">Hapus</button>
+                    ${u.role !== 'spv' ? `<button onclick="deleteUser(${u.id})" class="btn btn-danger btn-small">Hapus</button>` : ''}
                 </div>
             `).join('');
         }
@@ -679,29 +522,30 @@
             document.getElementById('newPassword').value = '';
         }
 
-        function addUser() {
+        async function addUser() {
             const username = document.getElementById('newUsername').value.trim();
             const password = document.getElementById('newPassword').value.trim();
             const role = document.getElementById('newRole').value;
             
-            if (!username || !password) return alert('Isi semua field!');
-            if (users.find(u => u.username === username)) return alert('Username sudah ada!');
+            if (!username || !password) return alert('Isi semua!');
             
-            users.push({ username, password, role });
-            saveToStorage('crm_users', users);
+            const { error } = await sb.from('users').insert({ username, password, role });
+            if (error) return alert('Username sudah ada!');
+            
+            await loadUsers();
             renderUserList();
             closeAddUserModal();
-            alert('✅ User berhasil ditambahkan!');
+            alert('✅ User ditambahkan!');
         }
 
-        function deleteUser(index) {
-            if (!confirm('Hapus user ini?')) return;
-            users.splice(index, 1);
-            saveToStorage('crm_users', users);
+        async function deleteUser(id) {
+            if (!confirm('Hapus user?')) return;
+            await sb.from('users').delete().eq('id', id);
+            await loadUsers();
             renderUserList();
         }
 
-        // CS & Assignment Management
+        // CS & Assignment
         async function loadAllCS() {
             const { data } = await sb.from('all_orderan').select('CS');
             if (data) allCS = [...new Set(data.map(d => d.CS).filter(Boolean))].sort();
@@ -718,7 +562,6 @@
             }
         }
 
-        // Admin Assignment Functions
         function renderAdminCRMSelect() {
             const crmUsers = users.filter(u => u.role === 'crm');
             const select = document.getElementById('adminCrmSelect');
@@ -746,7 +589,12 @@
             document.getElementById('adminCount').textContent = selectedCS.length;
         }
 
-        async function saveAdminAssignment() {
+        function toggleCS(cs) {
+            selectedCS = selectedCS.includes(cs) ? selectedCS.filter(c => c !== cs) : [...selectedCS, cs];
+            renderAdminCSGrid();
+        }
+
+        async function saveAssignment() {
             if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS!');
             
             await sb.from('crm_assignments').delete().eq('crm_name', currentCRM);
@@ -754,7 +602,7 @@
             
             assignments[currentCRM] = [...selectedCS];
             renderAdminAssignmentList();
-            alert('✅ Assignment tersimpan!');
+            alert('✅ Tersimpan!');
             document.getElementById('adminCrmSelect').value = '';
             document.getElementById('adminCsSelection').classList.add('hidden');
         }
@@ -762,83 +610,70 @@
         function renderAdminAssignmentList() {
             const list = document.getElementById('adminAssignmentList');
             if (!Object.keys(assignments).length) {
-                list.innerHTML = '<p style="color: #94a3b8;">Belum ada assignment</p>';
+                list.innerHTML = '<p style="color: #94a3b8;">Belum ada</p>';
                 return;
             }
             list.innerHTML = Object.entries(assignments).map(([c, cs]) => `
-                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px; border: 2px solid #e2e8f0;">
-                    <div style="font-weight: 700; margin-bottom: 12px; color: #1e293b;">${c}</div>
+                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px;">
+                    <div style="font-weight: 700; margin-bottom: 12px;">${c}</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600;">${s}</span>`).join('')}
+                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">${s}</span>`).join('')}
                     </div>
                 </div>
             `).join('');
         }
 
-        // SPV Monitoring Functions
+        // SPV Monitoring
         function renderSPVAssignmentList() {
             const list = document.getElementById('spvAssignmentList');
             if (!Object.keys(assignments).length) {
-                list.innerHTML = '<p style="color: #94a3b8;">Belum ada assignment</p>';
+                list.innerHTML = '<p style="color: #94a3b8;">Belum ada</p>';
                 return;
             }
             list.innerHTML = Object.entries(assignments).map(([c, cs]) => `
-                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px; border: 2px solid #e2e8f0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <div style="font-weight: 700; color: #1e293b;">${c}</div>
-                        <span class="role-badge role-crm">CRM User</span>
-                    </div>
+                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px;">
+                    <div style="font-weight: 700; margin-bottom: 12px;">${c}</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600;">${s}</span>`).join('')}
+                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">${s}</span>`).join('')}
                     </div>
                 </div>
             `).join('');
         }
 
         async function loadSPVStats() {
-            const statsGrid = document.getElementById('spvStatsGrid');
+            const grid = document.getElementById('spvStatsGrid');
             const crmUsers = Object.keys(assignments);
             
             if (!crmUsers.length) {
-                statsGrid.innerHTML = '<p style="color: #94a3b8;">Belum ada data</p>';
+                grid.innerHTML = '<p style="color: #94a3b8;">Belum ada</p>';
                 return;
             }
 
-            let statsHTML = '';
+            let html = '';
             for (const crm of crmUsers) {
-                const assignedCS = assignments[crm];
-                const { data } = await sb.from('all_orderan').select('*').in('CS', assignedCS);
-                
+                const { data } = await sb.from('all_orderan').select('*').in('CS', assignments[crm]);
                 if (data) {
                     const total = data.length;
                     const pending = data.filter(o => o['Status Akhir'] === 'Pending').length;
                     const delivered = data.filter(o => o['Status Akhir'] === 'Delivered').length;
                     
-                    statsHTML += `
+                    html += `
                         <div class="stat-card" style="border-left: 4px solid #667eea;">
-                            <div style="font-weight: 700; margin-bottom: 12px; color: #1e293b;">${crm}</div>
-                            <div style="display: grid; gap: 8px;">
-                                <div style="font-size: 12px; color: #64748b;">Total: <strong style="color: #1e293b;">${total}</strong></div>
-                                <div style="font-size: 12px; color: #64748b;">Pending: <strong style="color: #f59e0b;">${pending}</strong></div>
-                                <div style="font-size: 12px; color: #64748b;">Delivered: <strong style="color: #10b981;">${delivered}</strong></div>
-                            </div>
+                            <div style="font-weight: 700; margin-bottom: 12px;">${crm}</div>
+                            <div style="font-size: 12px; color: #64748b;">Total: <strong>${total}</strong></div>
+                            <div style="font-size: 12px; color: #64748b;">Pending: <strong>${pending}</strong></div>
+                            <div style="font-size: 12px; color: #64748b;">Delivered: <strong>${delivered}</strong></div>
                         </div>
                     `;
                 }
             }
-            
-            statsGrid.innerHTML = statsHTML;
+            grid.innerHTML = html;
         }
 
-        function toggleCS(cs) {
-            selectedCS = selectedCS.includes(cs) ? selectedCS.filter(c => c !== cs) : [...selectedCS, cs];
-            renderAdminCSGrid();
-        }
-
-        // Orders Management
+        // Orders
         async function loadOrders() {
             if (!assignments[currentUser.username]) {
-                document.getElementById('crmSubtitle').textContent = 'CS: Tidak ada assignment';
+                document.getElementById('crmSubtitle').textContent = 'CS: Tidak ada';
                 return;
             }
             
@@ -873,7 +708,7 @@
         function renderTable() {
             const tb = document.getElementById('crmTbody');
             if (!filtered.length) {
-                tb.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada data</td></tr>';
+                tb.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada</td></tr>';
                 return;
             }
             tb.innerHTML = filtered.map(o => `
@@ -886,7 +721,7 @@
                     <td><span class="badge badge-${o.Pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.Pembayaran || '-'}</span></td>
                     <td style="font-family: monospace; font-size: 11px;">${o.RESI || '-'}</td>
                     <td><span class="badge badge-${(o['Status Akhir'] || 'processing').toLowerCase()}">${o['Status Akhir'] || '-'}</span></td>
-                    <td style="font-weight: 600;">${o.CS || '-'}</td>
+                    <td>${o.CS || '-'}</td>
                     <td><button onclick="openEditModal(${o.id})" class="btn btn-primary btn-small">Edit</button></td>
                 </tr>
             `).join('');
@@ -920,16 +755,15 @@
             await sb.from('all_orderan').update(updates).eq('id', editId);
             await loadOrders();
             closeEditModal();
-            alert('✅ Berhasil update!');
+            alert('✅ Updated!');
         }
 
-        // Check if already logged in
+        // Init
         window.onload = function() {
-            init();
-            const user = getFromStorage('current_user');
+            const user = sessionStorage.getItem('user');
             if (user) {
-                currentUser = user;
-                showView(user.role);
+                currentUser = JSON.parse(user);
+                showView(currentUser.role);
             }
         };
     </script>
