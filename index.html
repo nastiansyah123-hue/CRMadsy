@@ -241,7 +241,7 @@
                 <!-- Date Filter -->
                 <div style="margin-bottom: 24px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
                     <label class="form-label">📅 Filter Data Berdasarkan Tanggal Upload</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 12px; align-items: end;">
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label" style="font-size: 12px;">Dari Tanggal</label>
                             <input type="date" id="adminDateFrom" class="form-input">
@@ -253,9 +253,12 @@
                         <button onclick="loadCSByDateRange()" class="btn btn-primary">
                             🔍 Load CS
                         </button>
+                        <button onclick="loadAllCSNow()" class="btn btn-secondary">
+                            📋 Semua CS
+                        </button>
                     </div>
                     <div style="margin-top: 12px; font-size: 12px; color: #64748b;">
-                        💡 Tip: Pilih range tanggal untuk load CS dari data di periode tersebut (lebih cepat untuk data besar)
+                        💡 Tip: Pilih range tanggal untuk load CS dari periode tertentu, atau klik "Semua CS" untuk load semua (mungkin lambat jika data >100k)
                     </div>
                 </div>
 
@@ -613,12 +616,14 @@
             }
 
             try {
-                let query = sbData.from('all_orderan').select('cs');
+                // Add T00:00:00 and T23:59:59 for full day coverage
+                const dateFromStart = dateFrom + 'T00:00:00';
+                const dateToEnd = dateTo + 'T23:59:59';
                 
-                // Filter by date range using created_at column
-                query = query.gte('created_at', dateFrom).lte('created_at', dateTo);
-                
-                const { data, error } = await query;
+                const { data, error } = await sbData.from('all_orderan')
+                    .select('cs')
+                    .gte('created_at', dateFromStart)
+                    .lte('created_at', dateToEnd);
                 
                 if (error) throw error;
                 
@@ -638,6 +643,32 @@
             } catch (error) {
                 console.error('Error loading CS:', error);
                 alert('Error loading data: ' + error.message);
+            }
+        }
+
+        async function loadAllCSNow() {
+            if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
+            
+            try {
+                const { data, error } = await sbData.from('all_orderan').select('cs').limit(50000);
+                
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    updateAdminCSTotal();
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
+                    
+                    if (currentCRM) {
+                        renderAdminCSGrid();
+                        document.getElementById('adminCsSelection').classList.remove('hidden');
+                    }
+                } else {
+                    alert('❌ Tidak ada data!');
+                }
+            } catch (error) {
+                console.error('Error loading CS:', error);
+                alert('Error: ' + error.message);
             }
         }
 
