@@ -625,11 +625,11 @@
                     sumber: 'Validasi'
                 });
                 
-                // Filter by DATE + sumber (lowercase)
+                // Filter by DATE + sumber (case-insensitive)
                 const { data, error, count } = await sbData
                     .from('all_orderan')
                     .select('cs', { count: 'exact' })
-                    .eq('sumber', 'Validasi')  // sumber lowercase
+                    .ilike('sumber', 'Validasi')  // Case-insensitive: validasi, VALIDASI, Validasi semua match
                     .gte('created_at', dateFromUTC)
                     .lte('created_at', dateToUTC)
                     .range(0, 99999);
