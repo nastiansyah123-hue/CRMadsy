@@ -886,11 +886,11 @@
 
             let html = '';
             for (const crm of crmUsers) {
-                const { data } = await sbData.from('all_orderan').select('*').in('cs', assignments[crm]);
+                const { data } = await sbData.from('all_orderan').select('*').in('cs', assignments[crm]).range(0, 99999);
                 if (data) {
                     const total = data.length;
-                    const pending = data.filter(o => o['Status Akhir'] === 'Pending').length;
-                    const delivered = data.filter(o => o['Status Akhir'] === 'Delivered').length;
+                    const pending = data.filter(o => o.status === 'Pending').length;
+                    const delivered = data.filter(o => o.status === 'Delivered').length;
                     
                     html += `
                         <div class="stat-card" style="border-left: 4px solid #667eea;">
@@ -933,8 +933,8 @@
             const q = document.getElementById('crmSearch').value.toLowerCase();
             const s = document.getElementById('crmFilter').value;
             filtered = orders.filter(o => 
-                (!q || o.Nama?.toLowerCase().includes(q) || o['Nomor Hp']?.includes(q) || o.RESI?.toLowerCase().includes(q)) &&
-                (s === 'all' || o['Status Akhir'] === s)
+                (!q || o.nama?.toLowerCase().includes(q) || o.hp?.includes(q) || o.resi?.toLowerCase().includes(q)) &&
+                (s === 'all' || o.status === s)
             );
             updateStats();
             renderTable();
@@ -942,9 +942,9 @@
 
         function updateStats() {
             document.getElementById('statTotal').textContent = filtered.length;
-            document.getElementById('statPending').textContent = filtered.filter(o => o['Status Akhir'] === 'Pending').length;
-            document.getElementById('statDelivered').textContent = filtered.filter(o => o['Status Akhir'] === 'Delivered').length;
-            document.getElementById('statCancelled').textContent = filtered.filter(o => o['Status Akhir'] === 'Cancelled').length;
+            document.getElementById('statPending').textContent = filtered.filter(o => o.status === 'Pending').length;
+            document.getElementById('statDelivered').textContent = filtered.filter(o => o.status === 'Delivered').length;
+            document.getElementById('statCancelled').textContent = filtered.filter(o => o.status === 'Cancelled').length;
         }
 
         function renderTable() {
@@ -954,19 +954,19 @@
                 return;
             }
             tb.innerHTML = filtered.map(o => {
-                // Format created_at to readable date
-                const date = o.created_at ? new Date(o.created_at).toLocaleDateString('id-ID') : '-';
+                // Format tanggal
+                const date = o.tanggal || o.created_at || '-';
                 
                 return `
                 <tr>
                     <td>${date}</td>
-                    <td style="font-weight: 600;">${o.Nama || '-'}</td>
-                    <td>${o['Nomor Hp'] || '-'}</td>
-                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${o.Alamat || '-'}</td>
-                    <td>${o['Jumlah Pesanan'] || '-'}</td>
-                    <td><span class="badge badge-${o.Pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.Pembayaran || '-'}</span></td>
-                    <td style="font-family: monospace; font-size: 11px;">${o.RESI || '-'}</td>
-                    <td><span class="badge badge-${(o['Status Akhir'] || 'processing').toLowerCase()}">${o['Status Akhir'] || '-'}</span></td>
+                    <td style="font-weight: 600;">${o.nama || '-'}</td>
+                    <td>${o.hp || '-'}</td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${o.alamat || '-'}</td>
+                    <td>${o.pesanan || o['jumlah pesanan'] || '-'}</td>
+                    <td><span class="badge badge-${o.pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.pembayaran || '-'}</span></td>
+                    <td style="font-family: monospace; font-size: 11px;">${o.resi || '-'}</td>
+                    <td><span class="badge badge-${(o.status || 'processing').toLowerCase()}">${o.status || '-'}</span></td>
                     <td>${o.cs || '-'}</td>
                     <td><button onclick="openEditModal(${o.id})" class="btn btn-primary btn-small">Edit</button></td>
                 </tr>
@@ -978,12 +978,12 @@
             const o = orders.find(x => x.id === id);
             if (!o) return;
             editId = id;
-            document.getElementById('editModalTitle').textContent = `Edit - ${o.Nama}`;
-            document.getElementById('editResi').value = o.RESI || '';
-            document.getElementById('editStatus').value = o['Status Akhir'] || 'Pending';
-            document.getElementById('editTeam').value = o.TEAM || '';
-            document.getElementById('editCRM').value = o['Update CRM'] || '';
-            document.getElementById('editRetur').value = o.RETUR || '';
+            document.getElementById('editModalTitle').textContent = `Edit - ${o.nama}`;
+            document.getElementById('editResi').value = o.resi || '';
+            document.getElementById('editStatus').value = o.status || 'Pending';
+            document.getElementById('editTeam').value = o.team || '';
+            document.getElementById('editCRM').value = o.crm || '';
+            document.getElementById('editRetur').value = o.retur || '';
             document.getElementById('editModal').classList.remove('hidden');
         }
 
@@ -993,11 +993,11 @@
 
         async function updateOrder() {
             const updates = {
-                RESI: document.getElementById('editResi').value,
-                'Status Akhir': document.getElementById('editStatus').value,
-                TEAM: document.getElementById('editTeam').value,
-                'Update CRM': document.getElementById('editCRM').value,
-                RETUR: document.getElementById('editRetur').value
+                resi: document.getElementById('editResi').value,
+                status: document.getElementById('editStatus').value,
+                team: document.getElementById('editTeam').value,
+                crm: document.getElementById('editCRM').value,
+                retur: document.getElementById('editRetur').value
             };
             await sbData.from('all_orderan').update(updates).eq('id', editId);
             await loadOrders();
