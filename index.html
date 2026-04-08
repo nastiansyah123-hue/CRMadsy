@@ -848,8 +848,16 @@
             
             if (!dateFrom || !dateTo) return alert('Pilih tanggal terlebih dahulu!');
             
-            // Delete old assignments for this CRM
-            await sbApp.from('crm_assignments').delete().eq('crm_name', currentCRM);
+            // JANGAN delete old assignments - biar bisa punya multiple periods
+            // Cuma delete assignment untuk CRM + CS + Date range yang sama
+            for (const cs of selectedCS) {
+                await sbApp.from('crm_assignments')
+                    .delete()
+                    .eq('crm_name', currentCRM)
+                    .eq('cs_name', cs)
+                    .eq('date_from', dateFrom)
+                    .eq('date_to', dateTo);
+            }
             
             // Insert new assignments with date range
             const assignmentData = selectedCS.map(cs => ({ 
@@ -863,7 +871,7 @@
             
             await loadAssignments();
             renderAdminAssignmentList();
-            alert('✅ Tersimpan!');
+            alert(`✅ Tersimpan!\n${selectedCS.length} CS untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
             document.getElementById('adminCrmSelect').value = '';
             document.getElementById('adminCsSelection').classList.add('hidden');
         }
@@ -938,41 +946,56 @@
                 return;
             }
             
-            const assignedCS = assignments[currentUser.username];
-            const dateRanges = assignmentDates[currentUser.username] || [];
+            const assignedData = assignmentDates[currentUser.username] || [];
             
-            // Get unique date ranges
-            const uniqueDates = [...new Set(dateRanges.map(d => `${d.dateFrom}|${d.dateTo}`))];
-            const dateInfo = uniqueDates.length > 0 ? uniqueDates[0].split('|') : null;
-            
-            let subtitleText = `CS: ${assignedCS.join(', ')}`;
-            if (dateInfo) {
-                subtitleText += ` | Periode: ${dateInfo[0]} - ${dateInfo[1]}`;
-            }
-            document.getElementById('crmSubtitle').textContent = subtitleText;
-            
-            // Load orders with date filter
-            let query = sbData
-                .from('all_orderan')
-                .select('*', { count: 'exact' })
-                .in('cs', assignedCS);
-            
-            // Apply date filter if exists
-            if (dateInfo) {
-                const dateFromUTC = new Date(dateInfo[0] + 'T00:00:00+07:00').toISOString();
-                const dateToUTC = new Date(dateInfo[1] + 'T23:59:59+07:00').toISOString();
-                query = query.gte('created_at', dateFromUTC).lte('created_at', dateToUTC);
+            if (!assignedData.length) {
+                document.getElementById('crmSubtitle').textContent = 'CS: Tidak ada assignment';
+                return;
             }
             
-            const { data, count } = await query
-                .order('created_at', { ascending: false })
-                .range(0, 99999);
+            // Group by date range
+            const dateGroups = {};
+            assignedData.forEach(item => {
+                const key = `${item.dateFrom}|${item.dateTo}`;
+                if (!dateGroups[key]) dateGroups[key] = [];
+                dateGroups[key].push(item.cs);
+            });
             
-            if (data) {
-                orders = data;
-                console.log(`📊 Loaded ${data.length} orders for ${currentUser.username} (Total in DB: ${count})`);
-                filterOrders();
+            // Fetch orders for each date range + CS combination
+            let allOrders = [];
+            for (const [dateKey, csList] of Object.entries(dateGroups)) {
+                const [dateFrom, dateTo] = dateKey.split('|');
+                const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
+                const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+                
+                const { data } = await sbData
+                    .from('all_orderan')
+                    .select('*')
+                    .in('cs', csList)
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(0, 99999);
+                
+                if (data) {
+                    allOrders = allOrders.concat(data);
+                }
             }
+            
+            // Remove duplicates (same id)
+            const uniqueOrders = Array.from(
+                new Map(allOrders.map(item => [item.id, item])).values()
+            );
+            
+            // Sort by created_at descending
+            uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            // Show info in subtitle
+            const dateRangeInfo = Object.keys(dateGroups).map(k => k.replace('|', ' - ')).join(', ');
+            document.getElementById('crmSubtitle').textContent = `Periode: ${dateRangeInfo}`;
+            
+            orders = uniqueOrders;
+            console.log(`📊 Loaded ${uniqueOrders.length} orders for ${currentUser.username} from ${Object.keys(dateGroups).length} period(s)`);
+            filterOrders();
         }
 
         function filterOrders() {
