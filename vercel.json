@@ -1,4 +1,13 @@
 {
-  "buildCommand": "node inject-env.js",
-  "outputDirectory": "."
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
 }
