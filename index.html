@@ -618,16 +618,17 @@
             try {
                 console.log('🔍 Loading CS for date range:', dateFrom, '-', dateTo);
                 
-                // Direct query with date casting using Postgres functions
-                const { data, error } = await sbData
+                // Use range() to override default 1000 limit
+                const { data, error, count } = await sbData
                     .from('all_orderan')
-                    .select('cs')
+                    .select('cs', { count: 'exact' })
                     .gte('created_at', dateFrom + 'T00:00:00')
                     .lte('created_at', dateTo + 'T23:59:59')
-                    .limit(100000);
+                    .range(0, 99999); // Fetch up to 100k rows
                 
                 console.log('📊 Query result:', {
                     totalRows: data?.length || 0,
+                    totalCount: count,
                     error: error,
                     sampleData: data?.slice(0, 5)
                 });
@@ -642,11 +643,19 @@
                     console.log('✅ Unique CS found:', {
                         totalCS: allCS.length,
                         csList: allCS,
-                        fromOrderan: data.length
+                        fromOrderan: data.length,
+                        totalInDB: count
                     });
                     
                     updateAdminCSTotal();
-                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}\n\nCek Console (F12) untuk detail!`);
+                    
+                    let message = `✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`;
+                    if (count > data.length) {
+                        message += `\n⚠️ Total data di DB: ${count} (hanya ${data.length} yang di-load)`;
+                    }
+                    message += `\nPeriode: ${dateFrom} - ${dateTo}`;
+                    
+                    alert(message);
                     
                     if (currentCRM) {
                         renderAdminCSGrid();
@@ -666,17 +675,38 @@
             if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
             
             try {
-                const { data, error } = await sbData
+                console.log('🔍 Loading all CS...');
+                
+                const { data, error, count } = await sbData
                     .from('all_orderan')
-                    .select('cs')
-                    .limit(100000);
+                    .select('cs', { count: 'exact' })
+                    .range(0, 99999); // Fetch up to 100k rows
+                
+                console.log('📊 Query result:', {
+                    totalRows: data?.length || 0,
+                    totalCount: count
+                });
                 
                 if (error) throw error;
                 
                 if (data && data.length > 0) {
                     allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    
+                    console.log('✅ Unique CS found:', {
+                        totalCS: allCS.length,
+                        csList: allCS,
+                        fromOrderan: data.length,
+                        totalInDB: count
+                    });
+                    
                     updateAdminCSTotal();
-                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
+                    
+                    let message = `✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`;
+                    if (count > data.length) {
+                        message += `\n⚠️ Total data di DB: ${count} (hanya ${data.length} yang di-load)`;
+                    }
+                    
+                    alert(message);
                     
                     if (currentCRM) {
                         renderAdminCSGrid();
