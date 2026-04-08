@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM System - Supabase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Setup View */
+        #setupView {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .setup-card {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px;
+            padding: 48px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .setup-title {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .form-input:focus { border-color: #667eea; }
+
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .btn-small { padding: 6px 12px; font-size: 11px; }
+
+        /* Main Views */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        #assignmentView, #dashboardView {
+            min-height: 100vh;
+            background: #f8fafc;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-title {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: #1e293b;
+        }
+
+        .form-select {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+            cursor: pointer;
+        }
+
+        .cs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .cs-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .cs-checkbox.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .filters {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        th, td { padding: 16px; text-align: left; }
+        th { font-weight: 700; color: #475569; }
+        td { border-bottom: 1px solid #f1f5f9; }
+        tbody tr:hover { background: #f8fafc; }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .badge-cod { background: #fef3c7; color: #92400e; }
+        .badge-transfer { background: #dbeafe; color: #1e40af; }
+        .badge-delivered { background: #d1fae5; color: #065f46; }
+        .badge-pending { background: #fef3c7; color: #92400e; }
+        .badge-cancelled { background: #fee2e2; color: #991b1b; }
+        .badge-processing { background: #e0e7ff; color: #3730a3; }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: auto;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Setup View -->
+    <div id="setupView">
+        <div class="setup-card">
+            <div class="setup-title">CRM System</div>
+            <p style="font-size: 14px; color: #64748b; margin-bottom: 32px;">Connect to Supabase</p>
+            
+            <div class="form-group">
+                <label class="form-label">Supabase URL</label>
+                <input type="text" id="supabaseUrl" class="form-input" placeholder="https://xxx.supabase.co">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Supabase Anon Key</label>
+                <input type="password" id="supabaseKey" class="form-input" placeholder="eyJhbGc...">
+            </div>
+            
+            <button onclick="connectSupabase()" class="btn btn-primary" style="width: 100%;">CONNECT</button>
+        </div>
+    </div>
+
+    <!-- Assignment View -->
+    <div id="assignmentView" class="hidden">
+        <div class="container">
+            <div class="header">
+                <div>
+                    <h1 class="header-title">CS Assignment Manager</h1>
+                    <p style="color: #64748b; font-size: 14px;">Atur CS untuk CRM</p>
+                </div>
+                <button onclick="goToDashboard()" class="btn btn-primary">Buka Dashboard →</button>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Buat Assignment</h2>
+                <div class="form-group">
+                    <label class="form-label">Pilih CRM</label>
+                    <select id="crmSelect" class="form-select" onchange="onCRMChange()">
+                        <option value="">-- Pilih CRM --</option>
+                        <option value="CRM A">CRM A</option>
+                        <option value="CRM B">CRM B</option>
+                        <option value="CRM C">CRM C</option>
+                        <option value="CRM D">CRM D</option>
+                    </select>
+                </div>
+                <div id="csSelection" class="hidden">
+                    <label class="form-label">Pilih CS (<span id="count">0</span> dipilih)</label>
+                    <div id="csGrid" class="cs-grid"></div>
+                    <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Assignment Saat Ini</h2>
+                <div id="assignmentList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboardView" class="hidden">
+        <div class="container">
+            <div class="header">
+                <div>
+                    <h1 class="header-title" id="dashTitle">Dashboard</h1>
+                    <p id="dashSub" style="color: #64748b; font-size: 14px;">CS: -</p>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button onclick="goToAssignment()" class="btn btn-secondary">⚙️ Settings</button>
+                    <button onclick="loadOrders()" class="btn btn-primary">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card" style="border-left: 4px solid #667eea;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
+                    <div class="stat-value" style="color: #667eea;" id="statTotal">0</div>
+                    <div style="font-size: 13px; color: #64748b;">Total Orders</div>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
+                    <div class="stat-value" style="color: #f59e0b;" id="statPending">0</div>
+                    <div style="font-size: 13px; color: #64748b;">Pending</div>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #10b981;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
+                    <div class="stat-value" style="color: #10b981;" id="statDelivered">0</div>
+                    <div style="font-size: 13px; color: #64748b;">Delivered</div>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #ef4444;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">❌</div>
+                    <div class="stat-value" style="color: #ef4444;" id="statCancelled">0</div>
+                    <div style="font-size: 13px; color: #64748b;">Cancelled</div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <input type="text" id="search" class="search-input" placeholder="🔍 Cari nama, HP, resi..." onkeyup="filterOrders()">
+                <select id="filter" class="form-select" onchange="filterOrders()">
+                    <option value="all">Semua Status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Processing">Processing</option>
+                    <option value="Shipped">Shipped</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+
+            <div class="card" style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th><th>Nama</th><th>No HP</th><th>Alamat</th>
+                            <th>Pesanan</th><th>Pembayaran</th><th>RESI</th><th>Status</th>
+                            <th>CS</th><th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody">
+                        <tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada data</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="modalTitle" style="font-size: 20px; margin-bottom: 24px;">Edit Order</h2>
+            <div style="display: grid; gap: 16px; margin-bottom: 24px;">
+                <div class="form-group">
+                    <label class="form-label">Resi</label>
+                    <input type="text" id="editResi" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select id="editStatus" class="form-select" style="max-width: 100%;">
+                        <option>Pending</option><option>Processing</option><option>Shipped</option>
+                        <option>Delivered</option><option>Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Team</label>
+                    <input type="text" id="editTeam" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Update CRM</label>
+                    <input type="text" id="editCRM" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Retur</label>
+                    <input type="text" id="editRetur" class="form-input">
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="updateOrder()" class="btn btn-success" style="flex: 1;">💾 Simpan</button>
+                <button onclick="closeModal()" class="btn btn-secondary" style="flex: 1;">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        let sb, crm = '', allCS = [], selCS = [], assigns = {}, orders = [], filtered = [], editId = null;
+
+        async function connectSupabase() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            if (!url || !key) return alert('Isi URL & Key!');
+            
+            try {
+                sb = createClient(url, key);
+                const { error } = await sb.from('orders').select('*').limit(1);
+                if (error) throw error;
+                
+                await loadAllCS();
+                await loadAssigns();
+                show('assignmentView');
+            } catch (e) {
+                alert('Gagal koneksi: ' + e.message);
+            }
+        }
+
+        async function loadAllCS() {
+            const { data } = await sb.from('orders').select('CS');
+            if (data) allCS = [...new Set(data.map(d => d.CS).filter(Boolean))].sort();
+        }
+
+        async function loadAssigns() {
+            const { data } = await sb.from('crm_assignments').select('*');
+            if (data) {
+                assigns = {};
+                data.forEach(i => {
+                    if (!assigns[i.crm_name]) assigns[i.crm_name] = [];
+                    assigns[i.crm_name].push(i.cs_name);
+                });
+                renderAssigns();
+            }
+        }
+
+        function onCRMChange() {
+            crm = document.getElementById('crmSelect').value;
+            if (crm) {
+                selCS = assigns[crm] || [];
+                renderCSGrid();
+                document.getElementById('csSelection').classList.remove('hidden');
+            }
+        }
+
+        function renderCSGrid() {
+            const grid = document.getElementById('csGrid');
+            grid.innerHTML = allCS.map(cs => `
+                <label class="cs-checkbox ${selCS.includes(cs) ? 'selected' : ''}">
+                    <input type="checkbox" ${selCS.includes(cs) ? 'checked' : ''} onchange="toggleCS('${cs}')">
+                    <span>${cs}</span>
+                </label>
+            `).join('');
+            document.getElementById('count').textContent = selCS.length;
+        }
+
+        function toggleCS(cs) {
+            selCS = selCS.includes(cs) ? selCS.filter(c => c !== cs) : [...selCS, cs];
+            renderCSGrid();
+        }
+
+        async function saveAssignment() {
+            if (!crm || !selCS.length) return alert('Pilih CRM & CS!');
+            
+            await sb.from('crm_assignments').delete().eq('crm_name', crm);
+            await sb.from('crm_assignments').insert(selCS.map(cs => ({ crm_name: crm, cs_name: cs })));
+            
+            assigns[crm] = [...selCS];
+            renderAssigns();
+            alert('✅ Tersimpan!');
+            document.getElementById('crmSelect').value = '';
+            document.getElementById('csSelection').classList.add('hidden');
+        }
+
+        function renderAssigns() {
+            const list = document.getElementById('assignmentList');
+            if (!Object.keys(assigns).length) {
+                list.innerHTML = '<p style="color: #94a3b8;">Belum ada assignment</p>';
+                return;
+            }
+            list.innerHTML = Object.entries(assigns).map(([c, cs]) => `
+                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px;">
+                    <div style="font-weight: 700; margin-bottom: 12px;">${c}</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">${s}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function goToDashboard() {
+            if (!crm || !assigns[crm]) return alert('Assign CS dulu!');
+            show('dashboardView');
+            document.getElementById('dashTitle').textContent = `${crm} Dashboard`;
+            document.getElementById('dashSub').textContent = `CS: ${assigns[crm].join(', ')}`;
+            loadOrders();
+        }
+
+        function goToAssignment() {
+            show('assignmentView');
+        }
+
+        async function loadOrders() {
+            if (!crm || !assigns[crm]) return;
+            const { data } = await sb.from('orders').select('*').in('CS', assigns[crm]).order('Tanggal', { ascending: false });
+            if (data) {
+                orders = data;
+                filterOrders();
+            }
+        }
+
+        function filterOrders() {
+            const q = document.getElementById('search').value.toLowerCase();
+            const s = document.getElementById('filter').value;
+            filtered = orders.filter(o => 
+                (!q || o.Nama?.toLowerCase().includes(q) || o['Nomor Hp']?.includes(q) || o.RESI?.toLowerCase().includes(q)) &&
+                (s === 'all' || o['Status Akhir'] === s)
+            );
+            updateStats();
+            renderTable();
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = filtered.length;
+            document.getElementById('statPending').textContent = filtered.filter(o => o['Status Akhir'] === 'Pending').length;
+            document.getElementById('statDelivered').textContent = filtered.filter(o => o['Status Akhir'] === 'Delivered').length;
+            document.getElementById('statCancelled').textContent = filtered.filter(o => o['Status Akhir'] === 'Cancelled').length;
+        }
+
+        function renderTable() {
+            const tb = document.getElementById('tbody');
+            if (!filtered.length) {
+                tb.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada data</td></tr>';
+                return;
+            }
+            tb.innerHTML = filtered.map(o => `
+                <tr>
+                    <td>${o.Tanggal || '-'}</td>
+                    <td style="font-weight: 600;">${o.Nama || '-'}</td>
+                    <td>${o['Nomor Hp'] || '-'}</td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${o.Alamat || '-'}</td>
+                    <td>${o['Jumlah Pesanan'] || '-'}</td>
+                    <td><span class="badge badge-${o.Pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.Pembayaran || '-'}</span></td>
+                    <td style="font-family: monospace; font-size: 11px;">${o.RESI || '-'}</td>
+                    <td><span class="badge badge-${(o['Status Akhir'] || 'processing').toLowerCase()}">${o['Status Akhir'] || '-'}</span></td>
+                    <td style="font-weight: 600;">${o.CS || '-'}</td>
+                    <td><button onclick="openModal(${o.id})" class="btn btn-primary btn-small">Edit</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function openModal(id) {
+            const o = orders.find(x => x.id === id);
+            if (!o) return;
+            editId = id;
+            document.getElementById('modalTitle').textContent = `Edit - ${o.Nama}`;
+            document.getElementById('editResi').value = o.RESI || '';
+            document.getElementById('editStatus').value = o['Status Akhir'] || 'Pending';
+            document.getElementById('editTeam').value = o.TEAM || '';
+            document.getElementById('editCRM').value = o['Update CRM'] || '';
+            document.getElementById('editRetur').value = o.RETUR || '';
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        async function updateOrder() {
+            const updates = {
+                RESI: document.getElementById('editResi').value,
+                'Status Akhir': document.getElementById('editStatus').value,
+                TEAM: document.getElementById('editTeam').value,
+                'Update CRM': document.getElementById('editCRM').value,
+                RETUR: document.getElementById('editRetur').value
+            };
+            await sb.from('orders').update(updates).eq('id', editId);
+            await loadOrders();
+            closeModal();
+            alert('✅ Berhasil update!');
+        }
+
+        function show(view) {
+            ['setupView', 'assignmentView', 'dashboardView'].forEach(v => 
+                document.getElementById(v).classList.add('hidden')
+            );
+            document.getElementById(view).classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
