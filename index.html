@@ -293,7 +293,7 @@
             
             <div style="margin-top: 24px; padding: 16px; background: #f1f5f9; border-radius: 12px; font-size: 12px; color: #64748b; line-height: 1.6;">
                 <strong style="color: #334155;">👤 Default Users:</strong><br>
-                Admin: admin / admin123<br>
+                Admin Data: admin / admin123<br>
                 SPV: spv / spv123<br>
                 CRM: crm1 / crm123
             </div>
@@ -305,11 +305,11 @@
         <div class="container">
             <div class="header">
                 <div>
-                    <h1 class="header-title">Admin Panel</h1>
-                    <p style="color: #64748b; font-size: 14px;">Kelola users & Supabase config</p>
+                    <h1 class="header-title">Admin Data Panel</h1>
+                    <p style="color: #64748b; font-size: 14px;">Kelola users, Supabase config & Assignment CS ke CRM</p>
                 </div>
                 <div class="user-info">
-                    <span class="role-badge role-admin">ADMIN</span>
+                    <span class="role-badge role-admin">ADMIN DATA</span>
                     <span id="adminUsername" style="font-weight: 600;"></span>
                     <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
                 </div>
@@ -335,16 +335,38 @@
                 <button onclick="showAddUserModal()" class="btn btn-primary" style="margin-bottom: 16px;">+ Tambah User</button>
                 <div id="userList" class="user-list"></div>
             </div>
+
+            <!-- CS Assignment -->
+            <div class="card">
+                <h2 class="card-title">📋 Assignment CS ke CRM</h2>
+                <div class="form-group">
+                    <label class="form-label">Pilih CRM User</label>
+                    <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
+                        <option value="">-- Pilih CRM --</option>
+                    </select>
+                </div>
+                <div id="adminCsSelection" class="hidden">
+                    <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih)</label>
+                    <div id="adminCsGrid" class="cs-grid"></div>
+                    <button onclick="saveAdminAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
+                </div>
+            </div>
+
+            <!-- Current Assignments -->
+            <div class="card">
+                <h2 class="card-title">Assignment Saat Ini</h2>
+                <div id="adminAssignmentList"></div>
+            </div>
         </div>
     </div>
 
-    <!-- SPV View -->
+    <!-- SPV View - Monitoring Only -->
     <div id="spvView" class="hidden">
         <div class="container">
             <div class="header">
                 <div>
-                    <h1 class="header-title">SPV Panel</h1>
-                    <p style="color: #64748b; font-size: 14px;">Assignment CS ke CRM</p>
+                    <h1 class="header-title">SPV Monitoring</h1>
+                    <p style="color: #64748b; font-size: 14px;">Monitor Assignment & Performance</p>
                 </div>
                 <div class="user-info">
                     <span class="role-badge role-spv">SPV</span>
@@ -353,25 +375,20 @@
                 </div>
             </div>
 
+            <!-- Assignment Overview -->
             <div class="card">
-                <h2 class="card-title">Buat Assignment</h2>
-                <div class="form-group">
-                    <label class="form-label">Pilih CRM User</label>
-                    <select id="spvCrmSelect" class="form-select" onchange="onCRMChange()">
-                        <option value="">-- Pilih CRM --</option>
-                    </select>
-                </div>
-                <div id="spvCsSelection" class="hidden">
-                    <label class="form-label">Pilih CS (<span id="spvCount">0</span> dipilih)</label>
-                    <div id="spvCsGrid" class="cs-grid"></div>
-                    <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
-                </div>
-            </div>
-
-            <div class="card">
-                <h2 class="card-title">Assignment Saat Ini</h2>
+                <h2 class="card-title">📊 Assignment Overview</h2>
                 <div id="spvAssignmentList"></div>
             </div>
+
+            <!-- Stats per CRM -->
+            <div class="card">
+                <h2 class="card-title">📈 Statistik per CRM</h2>
+                <div id="spvStatsGrid" class="stats-grid"></div>
+            </div>
+        </div>
+    </div>
+
         </div>
     </div>
 
@@ -567,7 +584,7 @@
             
             try {
                 const testSb = createClient(url, key);
-                const { error } = await testSb.from('orders').select('*').limit(1);
+                const { error } = await testSb.from('all_orderan').select('*').limit(1);
                 if (error) throw error;
                 
                 saveToStorage('supabase_config', { url, key });
@@ -608,18 +625,28 @@
             if (role === 'login') {
                 document.getElementById('loginView').classList.remove('hidden');
             } else if (role === 'admin') {
+                if (!sb) {
+                    document.getElementById('adminView').classList.remove('hidden');
+                    document.getElementById('adminUsername').textContent = currentUser.username;
+                    renderUserList();
+                    return;
+                }
                 document.getElementById('adminView').classList.remove('hidden');
                 document.getElementById('adminUsername').textContent = currentUser.username;
                 renderUserList();
-            } else if (role === 'spv') {
-                if (!sb) return alert('Supabase belum dikonfigurasi! Hubungi admin.');
-                document.getElementById('spvView').classList.remove('hidden');
-                document.getElementById('spvUsername').textContent = currentUser.username;
                 await loadAllCS();
                 await loadAssignments();
-                renderCRMSelect();
+                renderAdminCRMSelect();
+                renderAdminAssignmentList();
+            } else if (role === 'spv') {
+                if (!sb) return alert('Supabase belum dikonfigurasi! Hubungi admin data.');
+                document.getElementById('spvView').classList.remove('hidden');
+                document.getElementById('spvUsername').textContent = currentUser.username;
+                await loadAssignments();
+                await loadSPVStats();
+                renderSPVAssignmentList();
             } else if (role === 'crm') {
-                if (!sb) return alert('Supabase belum dikonfigurasi! Hubungi admin.');
+                if (!sb) return alert('Supabase belum dikonfigurasi! Hubungi admin data.');
                 document.getElementById('crmView').classList.remove('hidden');
                 document.getElementById('crmUsername').textContent = currentUser.username;
                 document.getElementById('crmTitle').textContent = `${currentUser.username.toUpperCase()} Dashboard`;
@@ -676,7 +703,7 @@
 
         // CS & Assignment Management
         async function loadAllCS() {
-            const { data } = await sb.from('orders').select('CS');
+            const { data } = await sb.from('all_orderan').select('CS');
             if (data) allCS = [...new Set(data.map(d => d.CS).filter(Boolean))].sort();
         }
 
@@ -688,69 +715,124 @@
                     if (!assignments[i.crm_name]) assignments[i.crm_name] = [];
                     assignments[i.crm_name].push(i.cs_name);
                 });
-                if (currentUser.role === 'spv') renderAssignmentList();
             }
         }
 
-        function renderCRMSelect() {
+        // Admin Assignment Functions
+        function renderAdminCRMSelect() {
             const crmUsers = users.filter(u => u.role === 'crm');
-            const select = document.getElementById('spvCrmSelect');
+            const select = document.getElementById('adminCrmSelect');
             select.innerHTML = '<option value="">-- Pilih CRM --</option>' +
                 crmUsers.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
         }
 
-        function onCRMChange() {
-            currentCRM = document.getElementById('spvCrmSelect').value;
+        function onAdminCRMChange() {
+            currentCRM = document.getElementById('adminCrmSelect').value;
             if (currentCRM) {
                 selectedCS = assignments[currentCRM] || [];
-                renderCSGrid();
-                document.getElementById('spvCsSelection').classList.remove('hidden');
+                renderAdminCSGrid();
+                document.getElementById('adminCsSelection').classList.remove('hidden');
             }
         }
 
-        function renderCSGrid() {
-            const grid = document.getElementById('spvCsGrid');
+        function renderAdminCSGrid() {
+            const grid = document.getElementById('adminCsGrid');
             grid.innerHTML = allCS.map(cs => `
                 <label class="cs-checkbox ${selectedCS.includes(cs) ? 'selected' : ''}">
                     <input type="checkbox" ${selectedCS.includes(cs) ? 'checked' : ''} onchange="toggleCS('${cs}')">
                     <span>${cs}</span>
                 </label>
             `).join('');
-            document.getElementById('spvCount').textContent = selectedCS.length;
+            document.getElementById('adminCount').textContent = selectedCS.length;
         }
 
-        function toggleCS(cs) {
-            selectedCS = selectedCS.includes(cs) ? selectedCS.filter(c => c !== cs) : [...selectedCS, cs];
-            renderCSGrid();
-        }
-
-        async function saveAssignment() {
+        async function saveAdminAssignment() {
             if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS!');
             
             await sb.from('crm_assignments').delete().eq('crm_name', currentCRM);
             await sb.from('crm_assignments').insert(selectedCS.map(cs => ({ crm_name: currentCRM, cs_name: cs })));
             
             assignments[currentCRM] = [...selectedCS];
-            renderAssignmentList();
+            renderAdminAssignmentList();
             alert('✅ Assignment tersimpan!');
-            document.getElementById('spvCrmSelect').value = '';
-            document.getElementById('spvCsSelection').classList.add('hidden');
+            document.getElementById('adminCrmSelect').value = '';
+            document.getElementById('adminCsSelection').classList.add('hidden');
         }
 
-        function renderAssignmentList() {
+        function renderAdminAssignmentList() {
+            const list = document.getElementById('adminAssignmentList');
+            if (!Object.keys(assignments).length) {
+                list.innerHTML = '<p style="color: #94a3b8;">Belum ada assignment</p>';
+                return;
+            }
+            list.innerHTML = Object.entries(assignments).map(([c, cs]) => `
+                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px; border: 2px solid #e2e8f0;">
+                    <div style="font-weight: 700; margin-bottom: 12px; color: #1e293b;">${c}</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600;">${s}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // SPV Monitoring Functions
+        function renderSPVAssignmentList() {
             const list = document.getElementById('spvAssignmentList');
             if (!Object.keys(assignments).length) {
                 list.innerHTML = '<p style="color: #94a3b8;">Belum ada assignment</p>';
                 return;
             }
             list.innerHTML = Object.entries(assignments).map(([c, cs]) => `
-                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px;">
-                    <div style="font-weight: 700; margin-bottom: 12px;">${c}</div>
+                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px; border: 2px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="font-weight: 700; color: #1e293b;">${c}</div>
+                        <span class="role-badge role-crm">CRM User</span>
+                    </div>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">${s}</span>`).join('')}
+                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600;">${s}</span>`).join('')}
                     </div>
                 </div>
             `).join('');
+        }
+
+        async function loadSPVStats() {
+            const statsGrid = document.getElementById('spvStatsGrid');
+            const crmUsers = Object.keys(assignments);
+            
+            if (!crmUsers.length) {
+                statsGrid.innerHTML = '<p style="color: #94a3b8;">Belum ada data</p>';
+                return;
+            }
+
+            let statsHTML = '';
+            for (const crm of crmUsers) {
+                const assignedCS = assignments[crm];
+                const { data } = await sb.from('all_orderan').select('*').in('CS', assignedCS);
+                
+                if (data) {
+                    const total = data.length;
+                    const pending = data.filter(o => o['Status Akhir'] === 'Pending').length;
+                    const delivered = data.filter(o => o['Status Akhir'] === 'Delivered').length;
+                    
+                    statsHTML += `
+                        <div class="stat-card" style="border-left: 4px solid #667eea;">
+                            <div style="font-weight: 700; margin-bottom: 12px; color: #1e293b;">${crm}</div>
+                            <div style="display: grid; gap: 8px;">
+                                <div style="font-size: 12px; color: #64748b;">Total: <strong style="color: #1e293b;">${total}</strong></div>
+                                <div style="font-size: 12px; color: #64748b;">Pending: <strong style="color: #f59e0b;">${pending}</strong></div>
+                                <div style="font-size: 12px; color: #64748b;">Delivered: <strong style="color: #10b981;">${delivered}</strong></div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            statsGrid.innerHTML = statsHTML;
+        }
+
+        function toggleCS(cs) {
+            selectedCS = selectedCS.includes(cs) ? selectedCS.filter(c => c !== cs) : [...selectedCS, cs];
+            renderAdminCSGrid();
         }
 
         // Orders Management
@@ -763,7 +845,7 @@
             const assignedCS = assignments[currentUser.username];
             document.getElementById('crmSubtitle').textContent = `CS: ${assignedCS.join(', ')}`;
             
-            const { data } = await sb.from('orders').select('*').in('CS', assignedCS).order('Tanggal', { ascending: false });
+            const { data } = await sb.from('all_orderan').select('*').in('CS', assignedCS).order('Tanggal', { ascending: false });
             if (data) {
                 orders = data;
                 filterOrders();
@@ -835,7 +917,7 @@
                 'Update CRM': document.getElementById('editCRM').value,
                 RETUR: document.getElementById('editRetur').value
             };
-            await sb.from('orders').update(updates).eq('id', editId);
+            await sb.from('all_orderan').update(updates).eq('id', editId);
             await loadOrders();
             closeEditModal();
             alert('✅ Berhasil update!');
