@@ -480,6 +480,7 @@
         let selectedCS = [];
         let currentCRM = '';
         let assignments = {};
+        let assignmentDates = {}; // Store date ranges per CRM
         let orders = [];
         let filtered = [];
         let editId = null;
@@ -790,9 +791,19 @@
             const { data } = await sbApp.from('crm_assignments').select('*');
             if (data) {
                 assignments = {};
+                assignmentDates = {}; // Store date ranges per CRM
+                
                 data.forEach(i => {
-                    if (!assignments[i.crm_name]) assignments[i.crm_name] = [];
+                    if (!assignments[i.crm_name]) {
+                        assignments[i.crm_name] = [];
+                        assignmentDates[i.crm_name] = [];
+                    }
                     assignments[i.crm_name].push(i.cs_name);
+                    assignmentDates[i.crm_name].push({
+                        cs: i.cs_name,
+                        dateFrom: i.date_from,
+                        dateTo: i.date_to
+                    });
                 });
             }
         }
@@ -832,10 +843,25 @@
         async function saveAssignment() {
             if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS!');
             
-            await sbApp.from('crm_assignments').delete().eq('crm_name', currentCRM);
-            await sbApp.from('crm_assignments').insert(selectedCS.map(cs => ({ crm_name: currentCRM, cs_name: cs })));
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
             
-            assignments[currentCRM] = [...selectedCS];
+            if (!dateFrom || !dateTo) return alert('Pilih tanggal terlebih dahulu!');
+            
+            // Delete old assignments for this CRM
+            await sbApp.from('crm_assignments').delete().eq('crm_name', currentCRM);
+            
+            // Insert new assignments with date range
+            const assignmentData = selectedCS.map(cs => ({ 
+                crm_name: currentCRM, 
+                cs_name: cs,
+                date_from: dateFrom,
+                date_to: dateTo
+            }));
+            
+            await sbApp.from('crm_assignments').insert(assignmentData);
+            
+            await loadAssignments();
             renderAdminAssignmentList();
             alert('✅ Tersimpan!');
             document.getElementById('adminCrmSelect').value = '';
@@ -913,18 +939,38 @@
             }
             
             const assignedCS = assignments[currentUser.username];
-            document.getElementById('crmSubtitle').textContent = `CS: ${assignedCS.join(', ')}`;
+            const dateRanges = assignmentDates[currentUser.username] || [];
             
-            const { data, count } = await sbData
+            // Get unique date ranges
+            const uniqueDates = [...new Set(dateRanges.map(d => `${d.dateFrom}|${d.dateTo}`))];
+            const dateInfo = uniqueDates.length > 0 ? uniqueDates[0].split('|') : null;
+            
+            let subtitleText = `CS: ${assignedCS.join(', ')}`;
+            if (dateInfo) {
+                subtitleText += ` | Periode: ${dateInfo[0]} - ${dateInfo[1]}`;
+            }
+            document.getElementById('crmSubtitle').textContent = subtitleText;
+            
+            // Load orders with date filter
+            let query = sbData
                 .from('all_orderan')
                 .select('*', { count: 'exact' })
-                .in('cs', assignedCS)
+                .in('cs', assignedCS);
+            
+            // Apply date filter if exists
+            if (dateInfo) {
+                const dateFromUTC = new Date(dateInfo[0] + 'T00:00:00+07:00').toISOString();
+                const dateToUTC = new Date(dateInfo[1] + 'T23:59:59+07:00').toISOString();
+                query = query.gte('created_at', dateFromUTC).lte('created_at', dateToUTC);
+            }
+            
+            const { data, count } = await query
                 .order('created_at', { ascending: false })
-                .range(0, 99999); // Override 1000 limit
+                .range(0, 99999);
             
             if (data) {
                 orders = data;
-                console.log(`📊 Loaded ${data.length} orders (Total in DB: ${count})`);
+                console.log(`📊 Loaded ${data.length} orders for ${currentUser.username} (Total in DB: ${count})`);
                 filterOrders();
             }
         }
