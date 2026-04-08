@@ -915,9 +915,16 @@
             const assignedCS = assignments[currentUser.username];
             document.getElementById('crmSubtitle').textContent = `CS: ${assignedCS.join(', ')}`;
             
-            const { data } = await sbData.from('all_orderan').select('*').in('cs', assignedCS).order('created_at', { ascending: false });
+            const { data, count } = await sbData
+                .from('all_orderan')
+                .select('*', { count: 'exact' })
+                .in('cs', assignedCS)
+                .order('created_at', { ascending: false })
+                .range(0, 99999); // Override 1000 limit
+            
             if (data) {
                 orders = data;
+                console.log(`📊 Loaded ${data.length} orders (Total in DB: ${count})`);
                 filterOrders();
             }
         }
@@ -946,9 +953,13 @@
                 tb.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada</td></tr>';
                 return;
             }
-            tb.innerHTML = filtered.map(o => `
+            tb.innerHTML = filtered.map(o => {
+                // Format created_at to readable date
+                const date = o.created_at ? new Date(o.created_at).toLocaleDateString('id-ID') : '-';
+                
+                return `
                 <tr>
-                    <td>${o.Tanggal || '-'}</td>
+                    <td>${date}</td>
                     <td style="font-weight: 600;">${o.Nama || '-'}</td>
                     <td>${o['Nomor Hp'] || '-'}</td>
                     <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${o.Alamat || '-'}</td>
@@ -959,7 +970,8 @@
                     <td>${o.cs || '-'}</td>
                     <td><button onclick="openEditModal(${o.id})" class="btn btn-primary btn-small">Edit</button></td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function openEditModal(id) {
