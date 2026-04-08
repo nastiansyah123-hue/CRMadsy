@@ -566,8 +566,8 @@
 
         // CS & Assignment
         async function loadAllCS() {
-            const { data } = await sbData.from('all_orderan').select('CS');
-            if (data) allCS = [...new Set(data.map(d => d.CS).filter(Boolean))].sort();
+            const { data } = await sbData.from('all_orderan').select('cs');
+            if (data) allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
         }
 
         async function loadAssignments() {
@@ -670,7 +670,7 @@
 
             let html = '';
             for (const crm of crmUsers) {
-                const { data } = await sbData.from('all_orderan').select('*').in('CS', assignments[crm]);
+                const { data } = await sbData.from('all_orderan').select('*').in('cs', assignments[crm]);
                 if (data) {
                     const total = data.length;
                     const pending = data.filter(o => o['Status Akhir'] === 'Pending').length;
@@ -699,7 +699,7 @@
             const assignedCS = assignments[currentUser.username];
             document.getElementById('crmSubtitle').textContent = `CS: ${assignedCS.join(', ')}`;
             
-            const { data } = await sbData.from('all_orderan').select('*').in('CS', assignedCS).order('Tanggal', { ascending: false });
+            const { data } = await sbData.from('all_orderan').select('*').in('cs', assignedCS).order('Tanggal', { ascending: false });
             if (data) {
                 orders = data;
                 filterOrders();
@@ -740,7 +740,7 @@
                     <td><span class="badge badge-${o.Pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.Pembayaran || '-'}</span></td>
                     <td style="font-family: monospace; font-size: 11px;">${o.RESI || '-'}</td>
                     <td><span class="badge badge-${(o['Status Akhir'] || 'processing').toLowerCase()}">${o['Status Akhir'] || '-'}</span></td>
-                    <td>${o.CS || '-'}</td>
+                    <td>${o.cs || '-'}</td>
                     <td><button onclick="openEditModal(${o.id})" class="btn btn-primary btn-small">Edit</button></td>
                 </tr>
             `).join('');
