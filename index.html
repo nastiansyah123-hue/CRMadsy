@@ -423,12 +423,18 @@
     </div>
 
     <script>
-        // SUPABASE CONFIG - Dari environment variable
-        const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'https://YOUR_PROJECT.supabase.co';
-        const SUPABASE_KEY = window.ENV?.SUPABASE_KEY || 'YOUR_ANON_KEY';
+        // SUPABASE CONFIG - 2 Projects
+        // Project 1: Data Orderan (bisa edit untuk update status, resi, dll)
+        const DATA_SUPABASE_URL = window.ENV?.DATA_SUPABASE_URL || 'https://YOUR_DATA_PROJECT.supabase.co';
+        const DATA_SUPABASE_KEY = window.ENV?.DATA_SUPABASE_KEY || 'YOUR_DATA_ANON_KEY';
+        
+        // Project 2: User Management & Assignments
+        const APP_SUPABASE_URL = window.ENV?.APP_SUPABASE_URL || 'https://YOUR_APP_PROJECT.supabase.co';
+        const APP_SUPABASE_KEY = window.ENV?.APP_SUPABASE_KEY || 'YOUR_APP_ANON_KEY';
 
         const { createClient } = supabase;
-        const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+        const sbData = createClient(DATA_SUPABASE_URL, DATA_SUPABASE_KEY); // Untuk all_orderan
+        const sbApp = createClient(APP_SUPABASE_URL, APP_SUPABASE_KEY); // Untuk users & assignments
 
         let currentUser = null;
         let users = [];
@@ -445,7 +451,7 @@
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
             
-            const { data } = await sb.from('users').select('*').eq('username', username).eq('password', password).single();
+            const { data } = await sbApp.from('users').select('*').eq('username', username).eq('password', password).single();
             
             if (!data) return alert('Username/password salah!');
             
@@ -495,7 +501,7 @@
 
         // User Management (SPV only)
         async function loadUsers() {
-            const { data } = await sb.from('users').select('*').order('username');
+            const { data } = await sbApp.from('users').select('*').order('username');
             if (data) users = data;
         }
 
@@ -529,7 +535,7 @@
             
             if (!username || !password) return alert('Isi semua!');
             
-            const { error } = await sb.from('users').insert({ username, password, role });
+            const { error } = await sbApp.from('users').insert({ username, password, role });
             if (error) return alert('Username sudah ada!');
             
             await loadUsers();
@@ -540,19 +546,19 @@
 
         async function deleteUser(id) {
             if (!confirm('Hapus user?')) return;
-            await sb.from('users').delete().eq('id', id);
+            await sbApp.from('users').delete().eq('id', id);
             await loadUsers();
             renderUserList();
         }
 
         // CS & Assignment
         async function loadAllCS() {
-            const { data } = await sb.from('all_orderan').select('CS');
+            const { data } = await sbData.from('all_orderan').select('CS');
             if (data) allCS = [...new Set(data.map(d => d.CS).filter(Boolean))].sort();
         }
 
         async function loadAssignments() {
-            const { data } = await sb.from('crm_assignments').select('*');
+            const { data } = await sbApp.from('crm_assignments').select('*');
             if (data) {
                 assignments = {};
                 data.forEach(i => {
@@ -597,8 +603,8 @@
         async function saveAssignment() {
             if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS!');
             
-            await sb.from('crm_assignments').delete().eq('crm_name', currentCRM);
-            await sb.from('crm_assignments').insert(selectedCS.map(cs => ({ crm_name: currentCRM, cs_name: cs })));
+            await sbApp.from('crm_assignments').delete().eq('crm_name', currentCRM);
+            await sbApp.from('crm_assignments').insert(selectedCS.map(cs => ({ crm_name: currentCRM, cs_name: cs })));
             
             assignments[currentCRM] = [...selectedCS];
             renderAdminAssignmentList();
@@ -651,7 +657,7 @@
 
             let html = '';
             for (const crm of crmUsers) {
-                const { data } = await sb.from('all_orderan').select('*').in('CS', assignments[crm]);
+                const { data } = await sbData.from('all_orderan').select('*').in('CS', assignments[crm]);
                 if (data) {
                     const total = data.length;
                     const pending = data.filter(o => o['Status Akhir'] === 'Pending').length;
@@ -680,7 +686,7 @@
             const assignedCS = assignments[currentUser.username];
             document.getElementById('crmSubtitle').textContent = `CS: ${assignedCS.join(', ')}`;
             
-            const { data } = await sb.from('all_orderan').select('*').in('CS', assignedCS).order('Tanggal', { ascending: false });
+            const { data } = await sbData.from('all_orderan').select('*').in('CS', assignedCS).order('Tanggal', { ascending: false });
             if (data) {
                 orders = data;
                 filterOrders();
@@ -752,7 +758,7 @@
                 'Update CRM': document.getElementById('editCRM').value,
                 RETUR: document.getElementById('editRetur').value
             };
-            await sb.from('all_orderan').update(updates).eq('id', editId);
+            await sbData.from('all_orderan').update(updates).eq('id', editId);
             await loadOrders();
             closeEditModal();
             alert('✅ Updated!');
