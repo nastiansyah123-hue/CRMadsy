@@ -616,14 +616,10 @@
             }
 
             try {
-                // Add T00:00:00 and T23:59:59 for full day coverage
-                const dateFromStart = dateFrom + 'T00:00:00';
-                const dateToEnd = dateTo + 'T23:59:59';
-                
                 // Use RPC for better performance with DISTINCT
                 const { data, error } = await sbData.rpc('get_distinct_cs_by_date', {
-                    date_from: dateFromStart,
-                    date_to: dateToEnd
+                    date_from: dateFrom,  // Pass as DATE string (2025-01-08)
+                    date_to: dateTo
                 });
                 
                 // Fallback if RPC doesn't exist
@@ -632,8 +628,8 @@
                     // Fetch with high limit and do distinct in JS
                     const result = await sbData.from('all_orderan')
                         .select('cs')
-                        .gte('created_at', dateFromStart)
-                        .lte('created_at', dateToEnd)
+                        .gte('created_at', dateFrom + 'T00:00:00')
+                        .lte('created_at', dateTo + 'T23:59:59')
                         .limit(100000);
                     
                     if (result.error) throw result.error;
@@ -665,7 +661,7 @@
                         document.getElementById('adminCsSelection').classList.remove('hidden');
                     }
                 } else {
-                    alert('❌ Tidak ada data di periode tersebut!');
+                    alert('❌ Tidak ada CS di periode tersebut!');
                 }
             } catch (error) {
                 console.error('Error loading CS:', error);
