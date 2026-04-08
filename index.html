@@ -625,11 +625,11 @@
                     sumber: 'Validasi'
                 });
                 
-                // Filter by DATE + SUMBER
+                // Filter by DATE + sumber (lowercase)
                 const { data, error, count } = await sbData
                     .from('all_orderan')
                     .select('cs', { count: 'exact' })
-                    .eq('Sumber', 'Validasi')  // Filter Sumber = Validasi
+                    .eq('sumber', 'Validasi')  // sumber lowercase
                     .gte('created_at', dateFromUTC)
                     .lte('created_at', dateToUTC)
                     .range(0, 99999);
@@ -670,7 +670,7 @@
                     }
                 } else {
                     console.warn('⚠️ No data found');
-                    alert('❌ Tidak ada data di periode tersebut dengan Sumber = Validasi!');
+                    alert('❌ Tidak ada data di periode tersebut dengan sumber = Validasi!');
                 }
             } catch (error) {
                 console.error('❌ Error loading CS:', error);
