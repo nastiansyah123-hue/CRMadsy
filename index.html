@@ -620,19 +620,46 @@
                 const dateFromStart = dateFrom + 'T00:00:00';
                 const dateToEnd = dateTo + 'T23:59:59';
                 
-                const { data, error } = await sbData.from('all_orderan')
-                    .select('cs')
-                    .gte('created_at', dateFromStart)
-                    .lte('created_at', dateToEnd);
+                // Use RPC for better performance with DISTINCT
+                const { data, error } = await sbData.rpc('get_distinct_cs_by_date', {
+                    date_from: dateFromStart,
+                    date_to: dateToEnd
+                });
+                
+                // Fallback if RPC doesn't exist
+                if (error && error.code === '42883') {
+                    console.log('Using fallback query...');
+                    // Fetch with high limit and do distinct in JS
+                    const result = await sbData.from('all_orderan')
+                        .select('cs')
+                        .gte('created_at', dateFromStart)
+                        .lte('created_at', dateToEnd)
+                        .limit(100000);
+                    
+                    if (result.error) throw result.error;
+                    
+                    if (result.data && result.data.length > 0) {
+                        allCS = [...new Set(result.data.map(d => d.cs).filter(Boolean))].sort();
+                        updateAdminCSTotal();
+                        alert(`✅ Berhasil load ${allCS.length} CS dari ${result.data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
+                        
+                        if (currentCRM) {
+                            renderAdminCSGrid();
+                            document.getElementById('adminCsSelection').classList.remove('hidden');
+                        }
+                    } else {
+                        alert('❌ Tidak ada data di periode tersebut!');
+                    }
+                    return;
+                }
                 
                 if (error) throw error;
                 
                 if (data && data.length > 0) {
-                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    allCS = data.map(d => d.cs).filter(Boolean).sort();
                     updateAdminCSTotal();
-                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
+                    alert(`✅ Berhasil load ${allCS.length} CS\nPeriode: ${dateFrom} - ${dateTo}`);
                     
-                    // Auto render CS grid if CRM selected
                     if (currentCRM) {
                         renderAdminCSGrid();
                         document.getElementById('adminCsSelection').classList.remove('hidden');
@@ -650,14 +677,39 @@
             if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
             
             try {
-                const { data, error } = await sbData.from('all_orderan').select('cs').limit(50000);
+                // Try RPC first
+                const { data, error } = await sbData.rpc('get_all_distinct_cs');
+                
+                // Fallback if RPC doesn't exist
+                if (error && error.code === '42883') {
+                    console.log('Using fallback query...');
+                    const result = await sbData.from('all_orderan')
+                        .select('cs')
+                        .limit(100000);
+                    
+                    if (result.error) throw result.error;
+                    
+                    if (result.data && result.data.length > 0) {
+                        allCS = [...new Set(result.data.map(d => d.cs).filter(Boolean))].sort();
+                        updateAdminCSTotal();
+                        alert(`✅ Berhasil load ${allCS.length} CS dari ${result.data.length} orderan`);
+                        
+                        if (currentCRM) {
+                            renderAdminCSGrid();
+                            document.getElementById('adminCsSelection').classList.remove('hidden');
+                        }
+                    } else {
+                        alert('❌ Tidak ada data!');
+                    }
+                    return;
+                }
                 
                 if (error) throw error;
                 
                 if (data && data.length > 0) {
-                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    allCS = data.map(d => d.cs).filter(Boolean).sort();
                     updateAdminCSTotal();
-                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
+                    alert(`✅ Berhasil load ${allCS.length} CS`);
                     
                     if (currentCRM) {
                         renderAdminCSGrid();
