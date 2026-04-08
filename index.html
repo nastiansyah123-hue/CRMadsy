@@ -961,23 +961,40 @@
                 dateGroups[key].push(item.cs);
             });
             
-            // Fetch orders for each date range + CS combination
+            // Fetch orders for each date range + CS combination WITH PAGINATION
             let allOrders = [];
             for (const [dateKey, csList] of Object.entries(dateGroups)) {
                 const [dateFrom, dateTo] = dateKey.split('|');
                 const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
                 const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
                 
-                const { data } = await sbData
-                    .from('all_orderan')
-                    .select('*')
-                    .in('cs', csList)
-                    .gte('created_at', dateFromUTC)
-                    .lte('created_at', dateToUTC)
-                    .range(0, 99999);
+                // Pagination loop
+                let page = 0;
+                const pageSize = 1000;
+                let hasMore = true;
                 
-                if (data) {
-                    allOrders = allOrders.concat(data);
+                while (hasMore) {
+                    const { data } = await sbData
+                        .from('all_orderan')
+                        .select('*')
+                        .ilike('sumber', 'Validasi')  // FILTER SUMBER = VALIDASI
+                        .in('cs', csList)
+                        .gte('created_at', dateFromUTC)
+                        .lte('created_at', dateToUTC)
+                        .range(page * pageSize, (page + 1) * pageSize - 1);
+                    
+                    if (data && data.length > 0) {
+                        allOrders = allOrders.concat(data);
+                        console.log(`📄 Fetched page ${page + 1}: ${data.length} rows (total: ${allOrders.length})`);
+                        
+                        if (data.length < pageSize) {
+                            hasMore = false;
+                        } else {
+                            page++;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
                 }
             }
             
@@ -991,10 +1008,10 @@
             
             // Show info in subtitle
             const dateRangeInfo = Object.keys(dateGroups).map(k => k.replace('|', ' - ')).join(', ');
-            document.getElementById('crmSubtitle').textContent = `Periode: ${dateRangeInfo}`;
+            document.getElementById('crmSubtitle').textContent = `Periode: ${dateRangeInfo} | Total: ${uniqueOrders.length} orderan`;
             
             orders = uniqueOrders;
-            console.log(`📊 Loaded ${uniqueOrders.length} orders for ${currentUser.username} from ${Object.keys(dateGroups).length} period(s)`);
+            console.log(`✅ Loaded ${uniqueOrders.length} orders for ${currentUser.username} from ${Object.keys(dateGroups).length} period(s)`);
             filterOrders();
         }
 
