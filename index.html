@@ -616,6 +616,8 @@
             }
 
             try {
+                console.log('🔍 Loading CS for date range:', dateFrom, '-', dateTo);
+                
                 // Direct query with date casting using Postgres functions
                 const { data, error } = await sbData
                     .from('all_orderan')
@@ -624,23 +626,38 @@
                     .lte('created_at', dateTo + 'T23:59:59')
                     .limit(100000);
                 
+                console.log('📊 Query result:', {
+                    totalRows: data?.length || 0,
+                    error: error,
+                    sampleData: data?.slice(0, 5)
+                });
+                
                 if (error) throw error;
                 
                 if (data && data.length > 0) {
                     // Get unique CS from results
-                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    const uniqueCS = [...new Set(data.map(d => d.cs).filter(Boolean))];
+                    allCS = uniqueCS.sort();
+                    
+                    console.log('✅ Unique CS found:', {
+                        totalCS: allCS.length,
+                        csList: allCS,
+                        fromOrderan: data.length
+                    });
+                    
                     updateAdminCSTotal();
-                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}\n\nCek Console (F12) untuk detail!`);
                     
                     if (currentCRM) {
                         renderAdminCSGrid();
                         document.getElementById('adminCsSelection').classList.remove('hidden');
                     }
                 } else {
+                    console.warn('⚠️ No data found for date range');
                     alert('❌ Tidak ada data di periode tersebut!');
                 }
             } catch (error) {
-                console.error('Error loading CS:', error);
+                console.error('❌ Error loading CS:', error);
                 alert('Error loading data: ' + error.message);
             }
         }
