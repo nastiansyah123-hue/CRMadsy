@@ -616,14 +616,22 @@
             }
 
             try {
-                console.log('🔍 Loading CS for date range:', dateFrom, '-', dateTo);
+                // Convert to UTC timezone for proper filtering
+                // Indonesia WIB = UTC+7, so we need to adjust
+                const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
+                const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+                
+                console.log('🔍 Loading CS for date range:', {
+                    localDate: `${dateFrom} - ${dateTo}`,
+                    utcRange: `${dateFromUTC} - ${dateToUTC}`
+                });
                 
                 // Use range() to override default 1000 limit
                 const { data, error, count } = await sbData
                     .from('all_orderan')
                     .select('cs', { count: 'exact' })
-                    .gte('created_at', dateFrom + 'T00:00:00')
-                    .lte('created_at', dateTo + 'T23:59:59')
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
                     .range(0, 99999); // Fetch up to 100k rows
                 
                 console.log('📊 Query result:', {
@@ -653,7 +661,7 @@
                     if (count > data.length) {
                         message += `\n⚠️ Total data di DB: ${count} (hanya ${data.length} yang di-load)`;
                     }
-                    message += `\nPeriode: ${dateFrom} - ${dateTo}`;
+                    message += `\nPeriode: ${dateFrom} - ${dateTo} (WIB)`;
                     
                     alert(message);
                     
