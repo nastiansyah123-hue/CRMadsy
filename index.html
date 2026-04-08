@@ -423,18 +423,31 @@
     </div>
 
     <script>
-        // SUPABASE CONFIG - 2 Projects
-        // Project 1: Data Orderan (bisa edit untuk update status, resi, dll)
-        const DATA_SUPABASE_URL = window.ENV?.DATA_SUPABASE_URL || 'https://YOUR_DATA_PROJECT.supabase.co';
-        const DATA_SUPABASE_KEY = window.ENV?.DATA_SUPABASE_KEY || 'YOUR_DATA_ANON_KEY';
+        // Fetch config from Vercel serverless function
+        let sbData, sbApp, CONFIG;
         
-        // Project 2: User Management & Assignments
-        const APP_SUPABASE_URL = window.ENV?.APP_SUPABASE_URL || 'https://YOUR_APP_PROJECT.supabase.co';
-        const APP_SUPABASE_KEY = window.ENV?.APP_SUPABASE_KEY || 'YOUR_APP_ANON_KEY';
+        async function initSupabase() {
+            try {
+                const response = await fetch('/api/config');
+                CONFIG = await response.json();
+                
+                const { createClient } = supabase;
+                sbData = createClient(CONFIG.DATA_SUPABASE_URL, CONFIG.DATA_SUPABASE_KEY);
+                sbApp = createClient(CONFIG.APP_SUPABASE_URL, CONFIG.APP_SUPABASE_KEY);
+                
+                // Check if already logged in
+                const user = sessionStorage.getItem('user');
+                if (user) {
+                    currentUser = JSON.parse(user);
+                    showView(currentUser.role);
+                }
+            } catch (error) {
+                console.error('Failed to load config:', error);
+                alert('Failed to load configuration. Please refresh the page.');
+            }
+        }
 
         const { createClient } = supabase;
-        const sbData = createClient(DATA_SUPABASE_URL, DATA_SUPABASE_KEY); // Untuk all_orderan
-        const sbApp = createClient(APP_SUPABASE_URL, APP_SUPABASE_KEY); // Untuk users & assignments
 
         let currentUser = null;
         let users = [];
@@ -765,12 +778,8 @@
         }
 
         // Init
-        window.onload = function() {
-            const user = sessionStorage.getItem('user');
-            if (user) {
-                currentUser = JSON.parse(user);
-                showView(currentUser.role);
-            }
+        window.onload = async function() {
+            await initSupabase();
         };
     </script>
 </body>
