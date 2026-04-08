@@ -1,10 +1,4 @@
 {
   "buildCommand": "node inject-env.js",
-  "outputDirectory": ".",
-  "env": {
-    "DATA_SUPABASE_URL": "@data-supabase-url",
-    "DATA_SUPABASE_KEY": "@data-supabase-key",
-    "APP_SUPABASE_URL": "@app-supabase-url",
-    "APP_SUPABASE_KEY": "@app-supabase-key"
-  }
+  "outputDirectory": "."
 }
