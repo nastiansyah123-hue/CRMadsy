@@ -262,9 +262,6 @@
                     </div>
                 </div>
 
-                <!-- Statistics Card -->
-                <div id="assignmentStats"></div>
-
                 <div class="form-group">
                     <label class="form-label">Pilih CRM User</label>
                     <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
@@ -277,6 +274,9 @@
                     <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
                 </div>
             </div>
+
+            <!-- Statistics Card -->
+            <div id="assignmentStats"></div>
 
             <div class="card">
                 <h2 class="card-title">Assignment Saat Ini</h2>
@@ -856,42 +856,76 @@
                 return;
             }
             
-            // Group by Product first: {HERBAPIL: ['Alfi', 'Sinta'], YOUZHI: ['Dita']}
-            const productGroups = {};
-            allCS.forEach(csData => {
-                csData.products.forEach(product => {
-                    if (!productGroups[product]) productGroups[product] = [];
-                    productGroups[product].push(csData.name);
+            // Get already assigned CS+Product for current CRM
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
+            const alreadyAssigned = new Set();
+            
+            if (currentCRM && dateFrom && dateTo) {
+                // Get assignments for this CRM + date range
+                sbApp.from('crm_assignments')
+                    .select('*')
+                    .eq('crm_name', currentCRM)
+                    .eq('date_from', dateFrom)
+                    .eq('date_to', dateTo)
+                    .then(({ data }) => {
+                        (data || []).forEach(a => {
+                            alreadyAssigned.add(`${a.cs_name}|${a.produk}`);
+                        });
+                        renderGrid(); // Re-render after loading assignments
+                    });
+            }
+            
+            function renderGrid() {
+                // Group by Product first: {HERBAPIL: ['Alfi', 'Sinta'], YOUZHI: ['Dita']}
+                const productGroups = {};
+                allCS.forEach(csData => {
+                    csData.products.forEach(product => {
+                        const key = `${csData.name}|${product}`;
+                        // Skip if already assigned to current CRM
+                        if (alreadyAssigned.has(key)) return;
+                        
+                        if (!productGroups[product]) productGroups[product] = [];
+                        productGroups[product].push(csData.name);
+                    });
                 });
-            });
-            
-            // Render grouped by product
-            grid.innerHTML = Object.keys(productGroups).sort().map(product => {
-                const csList = productGroups[product].sort();
                 
-                return `
-                    <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 16px; border: 2px solid #667eea;">
-                        <div style="font-weight: 800; margin-bottom: 16px; color: #667eea; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-                            📦 ${product}
-                            <span style="font-size: 12px; font-weight: 600; color: #64748b;">(${csList.length} CS)</span>
+                // Render grouped by product
+                grid.innerHTML = Object.keys(productGroups).sort().map(product => {
+                    const csList = productGroups[product].sort();
+                    
+                    if (!csList.length) return ''; // Skip empty products
+                    
+                    return `
+                        <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 16px; border: 2px solid #667eea;">
+                            <div style="font-weight: 800; margin-bottom: 16px; color: #667eea; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                                📦 ${product}
+                                <span style="font-size: 12px; font-weight: 600; color: #64748b;">(${csList.length} CS)</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
+                                ${csList.map(csName => {
+                                    const key = csName + '|' + product;
+                                    const isSelected = selectedCS.includes(key);
+                                    return `
+                                        <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 13px;">
+                                            <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${csName}', '${product}')">
+                                            <span>CS ${csName}</span>
+                                        </label>
+                                    `;
+                                }).join('')}
+                            </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
-                            ${csList.map(csName => {
-                                const key = csName + '|' + product;
-                                const isSelected = selectedCS.includes(key);
-                                return `
-                                    <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 13px;">
-                                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${csName}', '${product}')">
-                                        <span>CS ${csName}</span>
-                                    </label>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).filter(Boolean).join('');
+                
+                if (!grid.innerHTML.trim()) {
+                    grid.innerHTML = '<p style="color: #10b981; font-weight: 600;">✅ Semua CS+Produk sudah ter-assign!</p>';
+                }
+                
+                document.getElementById('adminCount').textContent = selectedCS.length;
+            }
             
-            document.getElementById('adminCount').textContent = selectedCS.length;
+            renderGrid();
             updateAssignmentStats();
         }
 
