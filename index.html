@@ -1263,6 +1263,12 @@
             grid.innerHTML = html;
         }
 
+        // CRM Orders Variables
+        let allOrders = [];
+        let filteredOrders = [];
+        let currentPage = 1;
+        let rowsPerPage = 20;
+
         // Orders
         async function loadOrders() {
             if (!assignments[currentUser.username]) {
@@ -1485,10 +1491,10 @@
         }
 
         function updateStats() {
-            document.getElementById('statTotal').textContent = filtered.length;
-            document.getElementById('statPending').textContent = filtered.filter(o => o.status === 'Pending').length;
-            document.getElementById('statDelivered').textContent = filtered.filter(o => o.status === 'Delivered').length;
-            document.getElementById('statCancelled').textContent = filtered.filter(o => o.status === 'Cancelled').length;
+            document.getElementById('statTotal').textContent = filteredOrders.length;
+            document.getElementById('statPending').textContent = filteredOrders.filter(o => o.status === 'Pending').length;
+            document.getElementById('statDelivered').textContent = filteredOrders.filter(o => o.status === 'Delivered').length;
+            document.getElementById('statCancelled').textContent = filteredOrders.filter(o => o.status === 'Cancelled').length;
         }
 
         function renderTable() {
