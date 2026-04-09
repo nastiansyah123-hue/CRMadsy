@@ -810,6 +810,7 @@
                     assignments[i.crm_name].push(i.cs_name);
                     assignmentDates[i.crm_name].push({
                         cs: i.cs_name,
+                        produk: i.produk,
                         dateFrom: i.date_from,
                         dateTo: i.date_to
                     });
@@ -876,27 +877,38 @@
         }
 
         async function saveAssignment() {
-            if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS!');
+            if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS + Produk!');
             
             const dateFrom = document.getElementById('adminDateFrom').value;
             const dateTo = document.getElementById('adminDateTo').value;
             
             if (!dateFrom || !dateTo) return alert('Pilih tanggal terlebih dahulu!');
             
-            // Delete existing assignments for same CRM + CS + Date
-            for (const cs of selectedCS) {
+            // Parse selectedCS: format "CS_NAME|PRODUK"
+            const assignments = selectedCS.map(key => {
+                const parts = key.split('|');
+                return {
+                    csName: parts[0],
+                    produk: parts[1]
+                };
+            });
+            
+            // Delete existing assignments for same CRM + CS + Produk + Date
+            for (const item of assignments) {
                 await sbApp.from('crm_assignments')
                     .delete()
                     .eq('crm_name', currentCRM)
-                    .eq('cs_name', cs)
+                    .eq('cs_name', item.csName)
+                    .eq('produk', item.produk)
                     .eq('date_from', dateFrom)
                     .eq('date_to', dateTo);
             }
             
-            // Insert new assignments
-            const assignmentData = selectedCS.map(cs => ({ 
+            // Insert new assignments with produk
+            const assignmentData = assignments.map(item => ({ 
                 crm_name: currentCRM, 
-                cs_name: cs,
+                cs_name: item.csName,
+                produk: item.produk,
                 date_from: dateFrom,
                 date_to: dateTo
             }));
@@ -905,7 +917,7 @@
             
             await loadAssignments();
             renderAdminAssignmentList();
-            alert(`✅ Tersimpan!\n${selectedCS.length} CS untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
+            alert(`✅ Tersimpan!\n${assignments.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
             document.getElementById('adminCrmSelect').value = '';
             document.getElementById('adminCsSelection').classList.add('hidden');
             selectedCS = [];
