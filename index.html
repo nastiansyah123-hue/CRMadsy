@@ -1126,10 +1126,14 @@
             await loadAssignments();
             renderAdminAssignmentList();
             await updateAssignmentStats(); // Refresh stats after save
-            alert(`✅ Tersimpan!\n${assignments.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
-            document.getElementById('adminCrmSelect').value = '';
-            document.getElementById('adminCsSelection').classList.add('hidden');
+            
+            // Clear selections
             selectedCS = [];
+            
+            // Re-render grid to remove assigned CS+Produk
+            renderAdminCSGrid();
+            
+            alert(`✅ Tersimpan!\n${assignments.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
         }
 
         function renderAdminAssignmentList() {
