@@ -639,10 +639,10 @@
                 
                 console.log('🔍 Loading CS with products');
                 
-                // Fetch cs + Jumlah untuk extract produk
+                // Fetch cs + jumlah untuk extract produk
                 const { data, error } = await sbData
                     .from('all_orderan')
-                    .select('cs, Jumlah')
+                    .select('cs, jumlah')
                     .ilike('sumber', 'Validasi')
                     .gte('created_at', dateFromUTC)
                     .lte('created_at', dateToUTC)
@@ -655,7 +655,7 @@
                     const csWithProducts = {};
                     data.forEach(row => {
                         if (!row.cs) return;
-                        const produk = extractProduk(row.Jumlah);
+                        const produk = extractProduk(row.jumlah);
                         if (!produk) return;
                         
                         if (!csWithProducts[row.cs]) {
