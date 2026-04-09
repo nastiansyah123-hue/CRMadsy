@@ -366,17 +366,27 @@
                 </select>
             </div>
 
+            <div style="margin-bottom: 16px; display: flex; gap: 12px;">
+                <button onclick="exportSelectedToCSV()" class="btn btn-primary">📥 Download CSV</button>
+                <button onclick="selectAllOrders()" class="btn btn-secondary">☑️ Select All</button>
+                <button onclick="deselectAllOrders()" class="btn btn-secondary">☐ Deselect All</button>
+                <span id="selectedCount" style="margin-left: auto; align-self: center; color: #64748b; font-size: 14px;">0 selected</span>
+            </div>
+
             <div class="card" style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
-                            <th>Tanggal</th><th>Nama</th><th>No HP</th><th>Alamat</th>
+                            <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
+                            <th>Tanggal</th><th>Nama</th><th>No HP</th>
+                            <th>Produk</th>
+                            <th>Desa</th><th>Kecamatan</th><th>Kabupaten</th><th>Provinsi</th>
                             <th>Pesanan</th><th>Pembayaran</th><th>RESI</th><th>Status</th>
                             <th>CS</th><th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="crmTbody">
-                        <tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Loading...</td></tr>
+                        <tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -484,6 +494,7 @@
         let orders = [];
         let filtered = [];
         let editId = null;
+        let selectedOrders = new Set(); // Track selected order IDs
 
         // Helper: Extract produk from Jumlah column
         function extractProduk(jumlahText) {
@@ -987,7 +998,6 @@
         }
 
         // Orders
-        // Orders
         async function loadOrders() {
             if (!assignments[currentUser.username]) {
                 document.getElementById('crmSubtitle').textContent = 'CS: Tidak ada';
@@ -1001,62 +1011,78 @@
                 return;
             }
             
-            // Group by date range
-            const dateGroups = {};
-            assignedData.forEach(item => {
-                const key = `${item.dateFrom}|${item.dateTo}`;
-                if (!dateGroups[key]) dateGroups[key] = [];
-                dateGroups[key].push(item.cs);
-            });
+            // Get unique CS and date range
+            const uniqueCS = [...new Set(assignedData.map(a => a.cs))];
+            const dateRanges = assignedData.map(a => ({ from: a.dateFrom, to: a.dateTo }));
+            const minDate = dateRanges.reduce((min, r) => r.from < min ? r.from : min, dateRanges[0].from);
+            const maxDate = dateRanges.reduce((max, r) => r.to > max ? r.to : max, dateRanges[0].to);
             
-            // Fetch orders for each date range + CS combination
+            const dateFromUTC = new Date(minDate + 'T00:00:00+07:00').toISOString();
+            const dateToUTC = new Date(maxDate + 'T23:59:59+07:00').toISOString();
+            
+            console.log(`🔍 Loading orders for ${uniqueCS.length} CS`);
+            
+            // Fetch all orders for assigned CS
             let allOrders = [];
-            for (const [dateKey, csList] of Object.entries(dateGroups)) {
-                const [dateFrom, dateTo] = dateKey.split('|');
-                const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
-                const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+            
+            while (hasMore) {
+                const { data } = await sbData
+                    .from('all_orderan')
+                    .select('*')
+                    .ilike('sumber', 'Validasi')
+                    .in('cs', uniqueCS)
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
                 
-                // Pagination loop
-                let page = 0;
-                const pageSize = 1000;
-                let hasMore = true;
-                
-                while (hasMore) {
-                    const { data } = await sbData
-                        .from('all_orderan')
-                        .select('*')
-                        .ilike('sumber', 'Validasi')
-                        .in('cs', csList)
-                        .gte('created_at', dateFromUTC)
-                        .lte('created_at', dateToUTC)
-                        .range(page * pageSize, (page + 1) * pageSize - 1);
+                if (data && data.length > 0) {
+                    allOrders = allOrders.concat(data);
+                    console.log(`📄 Page ${page + 1}: ${data.length} rows`);
                     
-                    if (data && data.length > 0) {
-                        allOrders = allOrders.concat(data);
-                        console.log(`📄 Page ${page + 1}: ${data.length} rows`);
-                        
-                        if (data.length < pageSize) {
-                            hasMore = false;
-                        } else {
-                            page++;
-                        }
-                    } else {
+                    if (data.length < pageSize) {
                         hasMore = false;
+                    } else {
+                        page++;
                     }
+                } else {
+                    hasMore = false;
                 }
             }
             
+            // Filter by produk + exact date for each assignment
+            const filteredOrders = allOrders.filter(order => {
+                const orderProduk = extractProduk(order.jumlah);
+                if (!orderProduk) return false;
+                
+                const orderDate = order.created_at ? order.created_at.split('T')[0] : null;
+                if (!orderDate) return false;
+                
+                // Check if matches any assignment
+                return assignedData.some(assignment => {
+                    return assignment.cs === order.cs &&
+                           assignment.produk === orderProduk &&
+                           orderDate >= assignment.dateFrom &&
+                           orderDate <= assignment.dateTo;
+                });
+            });
+            
             // Remove duplicates and sort
             const uniqueOrders = Array.from(
-                new Map(allOrders.map(item => [item.id, item])).values()
+                new Map(filteredOrders.map(item => [item.id, item])).values()
             );
             uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             
             // Show info
-            const dateRangeInfo = Object.keys(dateGroups).map(k => k.replace('|', ' - ')).join(', ');
-            document.getElementById('crmSubtitle').textContent = `Periode: ${dateRangeInfo} | Total: ${uniqueOrders.length} orderan`;
+            const csInfo = [...new Set(assignedData.map(a => `${a.cs} (${a.produk})`))].join(', ');
+            document.getElementById('crmSubtitle').textContent = `${csInfo} | ${uniqueOrders.length} orderan`;
             
             orders = uniqueOrders;
+            console.log(`✅ Loaded ${uniqueOrders.length} orders (filtered by CS+Produk+Date)`);
+            filterOrders();
+        }
             console.log(`✅ Loaded ${uniqueOrders.length} orders`);
             filterOrders();
         }
@@ -1082,19 +1108,25 @@
         function renderTable() {
             const tb = document.getElementById('crmTbody');
             if (!filtered.length) {
-                tb.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada</td></tr>';
+                tb.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada</td></tr>';
                 return;
             }
             tb.innerHTML = filtered.map(o => {
-                // Format tanggal
                 const date = o.tanggal || o.created_at || '-';
+                const produk = extractProduk(o.jumlah) || '-';
+                const isChecked = selectedOrders.has(o.id);
                 
                 return `
                 <tr>
+                    <td><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleOrderSelection(${o.id})"></td>
                     <td>${date}</td>
                     <td style="font-weight: 600;">${o.nama || '-'}</td>
                     <td>${o.hp || '-'}</td>
-                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${o.alamat || '-'}</td>
+                    <td style="font-size: 11px;">${produk}</td>
+                    <td>${o.kelurahan || '-'}</td>
+                    <td>${o.kecamatan || '-'}</td>
+                    <td>${o.kabupaten || '-'}</td>
+                    <td>${o.provinsi || '-'}</td>
                     <td>${o.pesanan || o['jumlah pesanan'] || '-'}</td>
                     <td><span class="badge badge-${o.pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.pembayaran || '-'}</span></td>
                     <td style="font-family: monospace; font-size: 11px;">${o.resi || '-'}</td>
@@ -1104,6 +1136,78 @@
                 </tr>
                 `;
             }).join('');
+            updateSelectedCount();
+        }
+
+        function toggleOrderSelection(id) {
+            if (selectedOrders.has(id)) {
+                selectedOrders.delete(id);
+            } else {
+                selectedOrders.add(id);
+            }
+            updateSelectedCount();
+        }
+
+        function toggleSelectAll() {
+            const checkbox = document.getElementById('selectAllCheckbox');
+            if (checkbox.checked) {
+                filtered.forEach(o => selectedOrders.add(o.id));
+            } else {
+                filtered.forEach(o => selectedOrders.delete(o.id));
+            }
+            renderTable();
+        }
+
+        function selectAllOrders() {
+            filtered.forEach(o => selectedOrders.add(o.id));
+            document.getElementById('selectAllCheckbox').checked = true;
+            renderTable();
+        }
+
+        function deselectAllOrders() {
+            selectedOrders.clear();
+            document.getElementById('selectAllCheckbox').checked = false;
+            renderTable();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = `${selectedOrders.size} selected`;
+        }
+
+        function exportSelectedToCSV() {
+            const selected = filtered.filter(o => selectedOrders.has(o.id));
+            if (!selected.length) {
+                alert('Pilih orderan dulu dengan checklist!');
+                return;
+            }
+            
+            const csv = [
+                ['Tanggal', 'Nama', 'No HP', 'Produk', 'Desa', 'Kecamatan', 'Kabupaten', 'Provinsi', 'Pesanan', 'Pembayaran', 'RESI', 'Status', 'CS'].join(','),
+                ...selected.map(o => [
+                    o.tanggal || o.created_at || '',
+                    `"${(o.nama || '').replace(/"/g, '""')}"`,
+                    o.hp || '',
+                    `"${(extractProduk(o.jumlah) || '').replace(/"/g, '""')}"`,
+                    o.kelurahan || '',
+                    o.kecamatan || '',
+                    o.kabupaten || '',
+                    o.provinsi || '',
+                    o.pesanan || o['jumlah pesanan'] || '',
+                    o.pembayaran || '',
+                    o.resi || '',
+                    o.status || '',
+                    o.cs || ''
+                ].join(','))
+            ].join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            
+            alert(`✅ ${selected.length} orderan berhasil di-download!`);
         }
 
         function openEditModal(id) {
