@@ -637,11 +637,12 @@
                 const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
                 const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
                 
-                console.log('🔍 Loading CS for date range');
+                console.log('🔍 Loading CS with products');
                 
-                const { data, error, count } = await sbData
+                // Fetch cs + Jumlah untuk extract produk
+                const { data, error } = await sbData
                     .from('all_orderan')
-                    .select('cs', { count: 'exact' })
+                    .select('cs, Jumlah')
                     .ilike('sumber', 'Validasi')
                     .gte('created_at', dateFromUTC)
                     .lte('created_at', dateToUTC)
@@ -650,9 +651,26 @@
                 if (error) throw error;
                 
                 if (data && data.length > 0) {
-                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
+                    // Group CS dengan produk-produknya
+                    const csWithProducts = {};
+                    data.forEach(row => {
+                        if (!row.cs) return;
+                        const produk = extractProduk(row.Jumlah);
+                        if (!produk) return;
+                        
+                        if (!csWithProducts[row.cs]) {
+                            csWithProducts[row.cs] = new Set();
+                        }
+                        csWithProducts[row.cs].add(produk);
+                    });
                     
-                    console.log(`✅ Loaded ${allCS.length} CS from ${data.length} orderan`);
+                    // Convert to array: [{name: 'Dinar', products: ['SALEP YOUZHI', 'NUMATA']}]
+                    allCS = Object.keys(csWithProducts).sort().map(cs => ({
+                        name: cs,
+                        products: Array.from(csWithProducts[cs]).sort()
+                    }));
+                    
+                    console.log(`✅ Loaded ${allCS.length} CS with products:`, allCS);
                     
                     updateAdminCSTotal();
                     alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
@@ -817,17 +835,43 @@
 
         function renderAdminCSGrid() {
             const grid = document.getElementById('adminCsGrid');
-            grid.innerHTML = allCS.map(cs => `
-                <label class="cs-checkbox ${selectedCS.includes(cs) ? 'selected' : ''}">
-                    <input type="checkbox" ${selectedCS.includes(cs) ? 'checked' : ''} onchange="toggleCS('${cs}')">
-                    <span>${cs}</span>
-                </label>
-            `).join('');
+            
+            if (!allCS.length) {
+                grid.innerHTML = '<p style="color: #94a3b8;">Tidak ada CS</p>';
+                return;
+            }
+            
+            grid.innerHTML = allCS.map(csData => {
+                const csName = csData.name;
+                const products = csData.products || [];
+                
+                return `
+                    <div style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                        <div style="font-weight: 700; margin-bottom: 12px; color: #1e293b; font-size: 14px;">
+                            ${csName}
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+                            ${products.map(product => {
+                                const key = csName + '|' + product;
+                                const isSelected = selectedCS.includes(key);
+                                return `
+                                    <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 12px;">
+                                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${csName}', '${product}')">
+                                        <span>${product}</span>
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
             document.getElementById('adminCount').textContent = selectedCS.length;
         }
 
-        function toggleCS(cs) {
-            selectedCS = selectedCS.includes(cs) ? selectedCS.filter(c => c !== cs) : [...selectedCS, cs];
+        function toggleCS(csName, product) {
+            const key = csName + '|' + product;
+            selectedCS = selectedCS.includes(key) ? selectedCS.filter(c => c !== key) : [...selectedCS, key];
             renderAdminCSGrid();
         }
 
