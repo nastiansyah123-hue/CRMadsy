@@ -485,6 +485,23 @@
         let filtered = [];
         let editId = null;
 
+        // Helper: Extract produk from Jumlah column
+        function extractProduk(jumlahText) {
+            if (!jumlahText) return null;
+            
+            // Coba cari "NEW" dulu
+            let match = jumlahText.match(/NEW\s+(.+)/i);
+            if (match) return match[1].trim().toUpperCase();
+            
+            // Kalau ga ada "NEW", skip angka + kata pertama (unit)
+            // "1 BOTOL SALEP YOUZHI" → "SALEP YOUZHI"
+            match = jumlahText.match(/^\d+\s+\w+\s+(.+)/i);
+            if (match) return match[1].trim().toUpperCase();
+            
+            // Fallback: return as is
+            return jumlahText.trim().toUpperCase();
+        }
+
         // Auth
         async function login() {
             const username = document.getElementById('loginUsername').value.trim();
