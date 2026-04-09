@@ -325,9 +325,28 @@
                 </div>
                 <div class="user-info">
                     <span class="role-badge role-crm">CRM</span>
+                    <span id="crmSubRoleBadge" style="font-size: 11px; padding: 4px 8px; background: #f1f5f9; border-radius: 6px; margin-right: 8px;"></span>
                     <span id="crmUsername" style="font-weight: 600;"></span>
                     <button onclick="loadOrders()" class="btn btn-primary btn-small">🔄</button>
                     <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
+                </div>
+            </div>
+
+            <!-- Menu khusus Manager -->
+            <div id="crmManagerMenu" class="hidden" style="margin-bottom: 24px;">
+                <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px;">
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px;">🎯 Manager Tools</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+                        <button onclick="exportToExcel()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                            📊 Export Excel
+                        </button>
+                        <button onclick="showAnalytics()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                            📈 Analytics
+                        </button>
+                        <button onclick="showTeamPerformance()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                            👥 Team Performance
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -485,6 +504,23 @@
         let filtered = [];
         let editId = null;
 
+        // Helper: Extract produk from Jumlah column
+        function extractProduk(jumlahText) {
+            if (!jumlahText) return null;
+            
+            // Coba cari "NEW" dulu
+            let match = jumlahText.match(/NEW\s+(.+)/i);
+            if (match) return match[1].trim().toUpperCase();
+            
+            // Kalau ga ada "NEW", skip angka + kata pertama (unit)
+            // "1 BOTOL SALEP YOUZHI" → "SALEP YOUZHI"
+            match = jumlahText.match(/^\d+\s+\w+\s+(.+)/i);
+            if (match) return match[1].trim().toUpperCase();
+            
+            // Fallback: return as is
+            return jumlahText.trim().toUpperCase();
+        }
+
         // Auth
         async function login() {
             const username = document.getElementById('loginUsername').value.trim();
@@ -539,6 +575,22 @@
                 document.getElementById('crmView').classList.remove('hidden');
                 document.getElementById('crmUsername').textContent = currentUser.username;
                 document.getElementById('crmTitle').textContent = currentUser.username.toUpperCase();
+                
+                // Show sub_role badge
+                const subRole = currentUser.sub_role || 'operator';
+                const subRoleBadge = document.getElementById('crmSubRoleBadge');
+                subRoleBadge.textContent = subRole.toUpperCase();
+                subRoleBadge.style.background = subRole === 'manager' ? '#10b981' : '#f1f5f9';
+                subRoleBadge.style.color = subRole === 'manager' ? 'white' : '#64748b';
+                
+                // Show/hide manager menu
+                const managerMenu = document.getElementById('crmManagerMenu');
+                if (subRole === 'manager') {
+                    managerMenu.classList.remove('hidden');
+                } else {
+                    managerMenu.classList.add('hidden');
+                }
+                
                 await loadAssignments();
                 await loadOrders();
             }
@@ -620,52 +672,60 @@
                 const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
                 const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
                 
-                console.log('🔍 Loading CS:', {
+                console.log('🔍 Loading CS with products:', {
                     dateRange: `${dateFrom} - ${dateTo}`,
-                    utcRange: `${dateFromUTC} - ${dateToUTC}`,
                     sumber: 'Validasi'
                 });
                 
-                // Filter by DATE + sumber (case-insensitive)
+                // Fetch cs + Jumlah to extract products
                 const { data, error, count } = await sbData
                     .from('all_orderan')
-                    .select('cs', { count: 'exact' })
-                    .ilike('sumber', 'Validasi')  // Case-insensitive: validasi, VALIDASI, Validasi semua match
+                    .select('cs, Jumlah', { count: 'exact' })
+                    .ilike('sumber', 'Validasi')
                     .gte('created_at', dateFromUTC)
                     .lte('created_at', dateToUTC)
                     .range(0, 99999);
                 
-                console.log('📊 Query result:', {
-                    totalRows: data?.length || 0,
-                    totalCount: count,
-                    error: error
-                });
-                
                 if (error) throw error;
                 
                 if (data && data.length > 0) {
-                    // Get unique CS
-                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
-                    
-                    console.log('✅ Unique CS found:', {
-                        totalCS: allCS.length,
-                        csList: allCS,
-                        fromOrderan: data.length,
-                        totalInDB: count
+                    // Group CS with their products
+                    const csWithProducts = {};
+                    data.forEach(row => {
+                        if (!row.cs) return;
+                        const produk = extractProduk(row.Jumlah);
+                        if (!produk) return;
+                        
+                        if (!csWithProducts[row.cs]) {
+                            csWithProducts[row.cs] = new Set();
+                        }
+                        csWithProducts[row.cs].add(produk);
                     });
+                    
+                    // Convert to array with products
+                    allCS = Object.keys(csWithProducts).sort().map(cs => ({
+                        name: cs,
+                        products: Array.from(csWithProducts[cs]).sort()
+                    }));
+                    
+                    console.log('✅ CS with products:', allCS);
                     
                     updateAdminCSTotal();
                     
-                    let message = `✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`;
-                    if (count > data.length) {
-                        message += `\n⚠️ Total di DB: ${count} (loaded: ${data.length})`;
-                    }
-                    message += `\nPeriode: ${dateFrom} - ${dateTo} (WIB)`;
-                    message += `\nSumber: Validasi`;
-                    
-                    alert(message);
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
                     
                     if (currentCRM) {
+                        renderAdminCSGrid();
+                        document.getElementById('adminCsSelection').classList.remove('hidden');
+                    }
+                } else {
+                    alert('❌ Tidak ada data di periode tersebut dengan sumber = Validasi!');
+                }
+            } catch (error) {
+                console.error('❌ Error loading CS:', error);
+                alert('Error loading data: ' + error.message);
+            }
+        }
                         renderAdminCSGrid();
                         document.getElementById('adminCsSelection').classList.remove('hidden');
                     }
@@ -791,7 +851,7 @@
             const { data } = await sbApp.from('crm_assignments').select('*');
             if (data) {
                 assignments = {};
-                assignmentDates = {}; // Store date ranges per CRM
+                assignmentDates = {}; // Store date ranges + produk per CRM
                 
                 data.forEach(i => {
                     if (!assignments[i.crm_name]) {
@@ -801,6 +861,7 @@
                     assignments[i.crm_name].push(i.cs_name);
                     assignmentDates[i.crm_name].push({
                         cs: i.cs_name,
+                        produk: i.produk,
                         dateFrom: i.date_from,
                         dateTo: i.date_to
                     });
@@ -826,43 +887,76 @@
 
         function renderAdminCSGrid() {
             const grid = document.getElementById('adminCsGrid');
-            grid.innerHTML = allCS.map(cs => `
-                <label class="cs-checkbox ${selectedCS.includes(cs) ? 'selected' : ''}">
-                    <input type="checkbox" ${selectedCS.includes(cs) ? 'checked' : ''} onchange="toggleCS('${cs}')">
-                    <span>${cs}</span>
-                </label>
-            `).join('');
+            
+            if (!allCS.length) {
+                grid.innerHTML = '<p style="color: #94a3b8;">Tidak ada CS</p>';
+                return;
+            }
+            
+            grid.innerHTML = allCS.map(csData => {
+                const csName = csData.name;
+                const products = csData.products || [];
+                
+                return `
+                    <div style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                        <div style="font-weight: 700; margin-bottom: 12px; color: #1e293b;">
+                            ${csName}
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                            ${products.map(product => {
+                                const key = `${csName}|${product}`;
+                                const isSelected = selectedCS.includes(key);
+                                return `
+                                    <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 13px;">
+                                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${csName}', '${product}')">
+                                        <span>${product}</span>
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
             document.getElementById('adminCount').textContent = selectedCS.length;
         }
 
-        function toggleCS(cs) {
-            selectedCS = selectedCS.includes(cs) ? selectedCS.filter(c => c !== cs) : [...selectedCS, cs];
+        function toggleCS(csName, product) {
+            const key = `${csName}|${product}`;
+            selectedCS = selectedCS.includes(key) ? selectedCS.filter(c => c !== key) : [...selectedCS, key];
             renderAdminCSGrid();
         }
 
         async function saveAssignment() {
-            if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS!');
+            if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS + Produk!');
             
             const dateFrom = document.getElementById('adminDateFrom').value;
             const dateTo = document.getElementById('adminDateTo').value;
             
             if (!dateFrom || !dateTo) return alert('Pilih tanggal terlebih dahulu!');
             
-            // JANGAN delete old assignments - biar bisa punya multiple periods
-            // Cuma delete assignment untuk CRM + CS + Date range yang sama
-            for (const cs of selectedCS) {
+            // Parse selectedCS (format: "CS_NAME|PRODUK")
+            const assignments = selectedCS.map(key => {
+                const [csName, produk] = key.split('|');
+                return { csName, produk };
+            });
+            
+            // Delete existing assignments for same CRM + CS + Produk + Date
+            for (const item of assignments) {
                 await sbApp.from('crm_assignments')
                     .delete()
                     .eq('crm_name', currentCRM)
-                    .eq('cs_name', cs)
+                    .eq('cs_name', item.csName)
+                    .eq('produk', item.produk)
                     .eq('date_from', dateFrom)
                     .eq('date_to', dateTo);
             }
             
-            // Insert new assignments with date range
-            const assignmentData = selectedCS.map(cs => ({ 
+            // Insert new assignments
+            const assignmentData = assignments.map(item => ({ 
                 crm_name: currentCRM, 
-                cs_name: cs,
+                cs_name: item.csName,
+                produk: item.produk,
                 date_from: dateFrom,
                 date_to: dateTo
             }));
@@ -871,9 +965,10 @@
             
             await loadAssignments();
             renderAdminAssignmentList();
-            alert(`✅ Tersimpan!\n${selectedCS.length} CS untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
+            alert(`✅ Tersimpan!\n${assignments.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
             document.getElementById('adminCrmSelect').value = '';
             document.getElementById('adminCsSelection').classList.add('hidden');
+            selectedCS = [];
         }
 
         function renderAdminAssignmentList() {
@@ -953,65 +1048,76 @@
                 return;
             }
             
-            // Group by date range
-            const dateGroups = {};
-            assignedData.forEach(item => {
-                const key = `${item.dateFrom}|${item.dateTo}`;
-                if (!dateGroups[key]) dateGroups[key] = [];
-                dateGroups[key].push(item.cs);
-            });
+            // Fetch all orders from assigned CS (broad query first)
+            const uniqueCS = [...new Set(assignedData.map(a => a.cs))];
+            const dateRanges = assignedData.map(a => ({ from: a.dateFrom, to: a.dateTo }));
+            const minDate = dateRanges.reduce((min, r) => r.from < min ? r.from : min, dateRanges[0].from);
+            const maxDate = dateRanges.reduce((max, r) => r.to > max ? r.to : max, dateRanges[0].to);
             
-            // Fetch orders for each date range + CS combination WITH PAGINATION
+            const dateFromUTC = new Date(minDate + 'T00:00:00+07:00').toISOString();
+            const dateToUTC = new Date(maxDate + 'T23:59:59+07:00').toISOString();
+            
+            console.log(`🔍 Loading orders for ${uniqueCS.length} CS, date range: ${minDate} - ${maxDate}`);
+            
+            // Pagination loop
             let allOrders = [];
-            for (const [dateKey, csList] of Object.entries(dateGroups)) {
-                const [dateFrom, dateTo] = dateKey.split('|');
-                const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
-                const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+            
+            while (hasMore) {
+                const { data } = await sbData
+                    .from('all_orderan')
+                    .select('*')
+                    .ilike('sumber', 'Validasi')
+                    .in('cs', uniqueCS)
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
                 
-                // Pagination loop
-                let page = 0;
-                const pageSize = 1000;
-                let hasMore = true;
-                
-                while (hasMore) {
-                    const { data } = await sbData
-                        .from('all_orderan')
-                        .select('*')
-                        .ilike('sumber', 'Validasi')  // FILTER SUMBER = VALIDASI
-                        .in('cs', csList)
-                        .gte('created_at', dateFromUTC)
-                        .lte('created_at', dateToUTC)
-                        .range(page * pageSize, (page + 1) * pageSize - 1);
+                if (data && data.length > 0) {
+                    allOrders = allOrders.concat(data);
+                    console.log(`📄 Page ${page + 1}: ${data.length} rows (total: ${allOrders.length})`);
                     
-                    if (data && data.length > 0) {
-                        allOrders = allOrders.concat(data);
-                        console.log(`📄 Fetched page ${page + 1}: ${data.length} rows (total: ${allOrders.length})`);
-                        
-                        if (data.length < pageSize) {
-                            hasMore = false;
-                        } else {
-                            page++;
-                        }
-                    } else {
+                    if (data.length < pageSize) {
                         hasMore = false;
+                    } else {
+                        page++;
                     }
+                } else {
+                    hasMore = false;
                 }
             }
             
-            // Remove duplicates (same id)
-            const uniqueOrders = Array.from(
-                new Map(allOrders.map(item => [item.id, item])).values()
-            );
+            // Filter by produk + exact date range for each assignment
+            const filteredOrders = allOrders.filter(order => {
+                const orderProduk = extractProduk(order.Jumlah);
+                if (!orderProduk) return false;
+                
+                const orderDate = order.created_at ? order.created_at.split('T')[0].split(' ')[0] : null;
+                if (!orderDate) return false;
+                
+                // Check if this order matches any assignment
+                return assignedData.some(assignment => {
+                    return assignment.cs === order.cs &&
+                           assignment.produk === orderProduk &&
+                           orderDate >= assignment.dateFrom &&
+                           orderDate <= assignment.dateTo;
+                });
+            });
             
-            // Sort by created_at descending
+            // Remove duplicates and sort
+            const uniqueOrders = Array.from(
+                new Map(filteredOrders.map(item => [item.id, item])).values()
+            );
             uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             
-            // Show info in subtitle
-            const dateRangeInfo = Object.keys(dateGroups).map(k => k.replace('|', ' - ')).join(', ');
-            document.getElementById('crmSubtitle').textContent = `Periode: ${dateRangeInfo} | Total: ${uniqueOrders.length} orderan`;
+            // Show info
+            const csInfo = [...new Set(assignedData.map(a => `${a.cs} (${a.produk})`))].join(', ');
+            document.getElementById('crmSubtitle').textContent = `${csInfo} | ${uniqueOrders.length} orderan`;
             
             orders = uniqueOrders;
-            console.log(`✅ Loaded ${uniqueOrders.length} orders for ${currentUser.username} from ${Object.keys(dateGroups).length} period(s)`);
+            console.log(`✅ Loaded ${uniqueOrders.length} orders (filtered by CS+Produk+Date)`);
             filterOrders();
         }
 
@@ -1089,6 +1195,85 @@
             await loadOrders();
             closeEditModal();
             alert('✅ Updated!');
+        }
+
+        // Manager-only functions
+        function exportToExcel() {
+            if (currentUser.sub_role !== 'manager') {
+                alert('❌ Fitur ini khusus untuk Manager!');
+                return;
+            }
+            
+            // Convert orders to CSV
+            const csv = [
+                ['Tanggal', 'Nama', 'No HP', 'Alamat', 'Pesanan', 'Pembayaran', 'RESI', 'Status', 'CS'].join(','),
+                ...filtered.map(o => [
+                    o.tanggal || '',
+                    `"${(o.nama || '').replace(/"/g, '""')}"`,
+                    o.hp || '',
+                    `"${(o.alamat || '').replace(/"/g, '""')}"`,
+                    o.pesanan || '',
+                    o.pembayaran || '',
+                    o.resi || '',
+                    o.status || '',
+                    o.cs || ''
+                ].join(','))
+            ].join('\n');
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            
+            alert('✅ Data berhasil di-export!');
+        }
+
+        function showAnalytics() {
+            if (currentUser.sub_role !== 'manager') {
+                alert('❌ Fitur ini khusus untuk Manager!');
+                return;
+            }
+            
+            const total = filtered.length;
+            const pending = filtered.filter(o => o.status === 'Pending').length;
+            const delivered = filtered.filter(o => o.status === 'Delivered').length;
+            const cancelled = filtered.filter(o => o.status === 'Cancelled').length;
+            
+            const msg = `📊 ANALYTICS REPORT\n\n` +
+                        `Total Orders: ${total}\n` +
+                        `Pending: ${pending} (${(pending/total*100).toFixed(1)}%)\n` +
+                        `Delivered: ${delivered} (${(delivered/total*100).toFixed(1)}%)\n` +
+                        `Cancelled: ${cancelled} (${(cancelled/total*100).toFixed(1)}%)\n\n` +
+                        `Conversion Rate: ${(delivered/total*100).toFixed(1)}%`;
+            
+            alert(msg);
+        }
+
+        function showTeamPerformance() {
+            if (currentUser.sub_role !== 'manager') {
+                alert('❌ Fitur ini khusus untuk Manager!');
+                return;
+            }
+            
+            // Group by CS
+            const byCS = {};
+            filtered.forEach(o => {
+                if (!byCS[o.cs]) byCS[o.cs] = { total: 0, delivered: 0 };
+                byCS[o.cs].total++;
+                if (o.status === 'Delivered') byCS[o.cs].delivered++;
+            });
+            
+            let msg = '👥 TEAM PERFORMANCE\n\n';
+            Object.keys(byCS).sort().forEach(cs => {
+                const perf = byCS[cs];
+                const rate = (perf.delivered / perf.total * 100).toFixed(1);
+                msg += `${cs}: ${perf.delivered}/${perf.total} (${rate}%)\n`;
+            });
+            
+            alert(msg);
         }
 
         // Init
