@@ -262,6 +262,9 @@
                     </div>
                 </div>
 
+                <!-- Statistics Card -->
+                <div id="assignmentStats"></div>
+
                 <div class="form-group">
                     <label class="form-label">Pilih CRM User</label>
                     <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
@@ -853,23 +856,33 @@
                 return;
             }
             
-            grid.innerHTML = allCS.map(csData => {
-                const csName = csData.name;
-                const products = csData.products || [];
+            // Group by Product first: {HERBAPIL: ['Alfi', 'Sinta'], YOUZHI: ['Dita']}
+            const productGroups = {};
+            allCS.forEach(csData => {
+                csData.products.forEach(product => {
+                    if (!productGroups[product]) productGroups[product] = [];
+                    productGroups[product].push(csData.name);
+                });
+            });
+            
+            // Render grouped by product
+            grid.innerHTML = Object.keys(productGroups).sort().map(product => {
+                const csList = productGroups[product].sort();
                 
                 return `
-                    <div style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
-                        <div style="font-weight: 700; margin-bottom: 12px; color: #1e293b; font-size: 14px;">
-                            ${csName}
+                    <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 16px; border: 2px solid #667eea;">
+                        <div style="font-weight: 800; margin-bottom: 16px; color: #667eea; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                            📦 ${product}
+                            <span style="font-size: 12px; font-weight: 600; color: #64748b;">(${csList.length} CS)</span>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
-                            ${products.map(product => {
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
+                            ${csList.map(csName => {
                                 const key = csName + '|' + product;
                                 const isSelected = selectedCS.includes(key);
                                 return `
-                                    <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 12px;">
+                                    <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 13px;">
                                         <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${csName}', '${product}')">
-                                        <span>${product}</span>
+                                        <span>CS ${csName}</span>
                                     </label>
                                 `;
                             }).join('')}
@@ -879,6 +892,83 @@
             }).join('');
             
             document.getElementById('adminCount').textContent = selectedCS.length;
+            updateAssignmentStats();
+        }
+
+        async function updateAssignmentStats() {
+            const statsDiv = document.getElementById('assignmentStats');
+            if (!statsDiv) return;
+            
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
+            
+            if (!dateFrom || !dateTo) {
+                statsDiv.innerHTML = '';
+                return;
+            }
+            
+            // Get all assignments for this date range
+            const { data: assignmentsData } = await sbApp.from('crm_assignments')
+                .select('*')
+                .eq('date_from', dateFrom)
+                .eq('date_to', dateTo);
+            
+            const assignedSet = new Set();
+            (assignmentsData || []).forEach(a => {
+                assignedSet.add(`${a.cs_name}|${a.produk}`);
+            });
+            
+            // Calculate stats
+            const totalCombinations = allCS.reduce((sum, cs) => sum + cs.products.length, 0);
+            const assigned = assignedSet.size;
+            const unassigned = totalCombinations - assigned;
+            const percentage = totalCombinations > 0 ? ((assigned / totalCombinations) * 100).toFixed(1) : 0;
+            
+            // Find unassigned details
+            const unassignedDetails = {};
+            allCS.forEach(csData => {
+                csData.products.forEach(product => {
+                    const key = `${csData.name}|${product}`;
+                    if (!assignedSet.has(key)) {
+                        if (!unassignedDetails[product]) unassignedDetails[product] = [];
+                        unassignedDetails[product].push(csData.name);
+                    }
+                });
+            });
+            
+            const unassignedHTML = Object.keys(unassignedDetails).length > 0 ? `
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                    <div style="font-weight: 700; font-size: 13px; color: #64748b; margin-bottom: 8px;">Detail Belum Ter-Assign:</div>
+                    ${Object.keys(unassignedDetails).map(prod => `
+                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
+                            • <strong>${prod}</strong>: ${unassignedDetails[prod].length} CS (${unassignedDetails[prod].join(', ')})
+                        </div>
+                    `).join('')}
+                </div>
+            ` : '';
+            
+            statsDiv.innerHTML = `
+                <div class="card" style="background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); border-left: 4px solid #667eea;">
+                    <div style="font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1e293b;">
+                        📊 Statistik Assignment - ${dateFrom} ${dateFrom !== dateTo ? 's/d ' + dateTo : ''}
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 8px;">
+                        <div>
+                            <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">📦 Total CS + Produk</div>
+                            <div style="font-size: 28px; font-weight: 800; color: #667eea;">${totalCombinations}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">✅ Sudah Ter-Assign</div>
+                            <div style="font-size: 28px; font-weight: 800; color: #10b981;">${assigned} <span style="font-size: 16px; color: #64748b;">(${percentage}%)</span></div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">⚠️ Belum Ter-Assign</div>
+                            <div style="font-size: 28px; font-weight: 800; color: ${unassigned > 0 ? '#ef4444' : '#94a3b8'};">${unassigned}</div>
+                        </div>
+                    </div>
+                    ${unassignedHTML}
+                </div>
+            `;
         }
 
         function toggleCS(csName, product) {
@@ -928,6 +1018,7 @@
             
             await loadAssignments();
             renderAdminAssignmentList();
+            await updateAssignmentStats(); // Refresh stats after save
             alert(`✅ Tersimpan!\n${assignments.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
             document.getElementById('adminCrmSelect').value = '';
             document.getElementById('adminCsSelection').classList.add('hidden');
