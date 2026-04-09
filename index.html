@@ -687,6 +687,7 @@
                     console.log(`✅ Loaded ${allCS.length} CS with products:`, allCS);
                     
                     updateAdminCSTotal();
+                    await updateAssignmentStats(); // Update stats after load
                     alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
                     
                     if (currentCRM) {
