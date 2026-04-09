@@ -906,9 +906,11 @@
                             ${products.map(product => {
                                 const key = `${csName}|${product}`;
                                 const isSelected = selectedCS.includes(key);
+                                const escapedCS = csName.replace(/'/g, "\\'");
+                                const escapedProduct = product.replace(/'/g, "\\'");
                                 return `
                                     <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 13px;">
-                                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${csName}', '${product}')">
+                                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${escapedCS}', '${escapedProduct}')">
                                         <span>${product}</span>
                                     </label>
                                 `;
