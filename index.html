@@ -652,18 +652,6 @@
                 alert('Error: ' + error.message);
             }
         }
-                        renderAdminCSGrid();
-                        document.getElementById('adminCsSelection').classList.remove('hidden');
-                    }
-                } else {
-                    console.warn('⚠️ No data found');
-                    alert('❌ Tidak ada data di periode tersebut dengan sumber = Validasi!');
-                }
-            } catch (error) {
-                console.error('❌ Error loading CS:', error);
-                alert('Error loading data: ' + error.message);
-            }
-        }
 
         async function loadAllCSNow() {
             if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
