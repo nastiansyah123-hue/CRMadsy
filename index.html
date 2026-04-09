@@ -907,6 +907,18 @@
                 return;
             }
             
+            // Get total orderan count from database
+            const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
+            const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+            
+            const { data: allOrdersData } = await sbData
+                .from('all_orderan')
+                .select('cs, jumlah')
+                .ilike('sumber', 'Validasi')
+                .gte('created_at', dateFromUTC)
+                .lte('created_at', dateToUTC)
+                .range(0, 99999);
+            
             // Get all assignments for this date range
             const { data: assignmentsData } = await sbApp.from('crm_assignments')
                 .select('*')
@@ -918,55 +930,77 @@
                 assignedSet.add(`${a.cs_name}|${a.produk}`);
             });
             
-            // Calculate stats
-            const totalCombinations = allCS.reduce((sum, cs) => sum + cs.products.length, 0);
-            const assigned = assignedSet.size;
-            const unassigned = totalCombinations - assigned;
-            const percentage = totalCombinations > 0 ? ((assigned / totalCombinations) * 100).toFixed(1) : 0;
+            // Count assigned vs unassigned orders
+            let assignedOrders = 0;
+            let unassignedOrders = 0;
+            const unassignedByProduct = {};
             
-            // Find unassigned details
-            const unassignedDetails = {};
-            allCS.forEach(csData => {
-                csData.products.forEach(product => {
-                    const key = `${csData.name}|${product}`;
-                    if (!assignedSet.has(key)) {
-                        if (!unassignedDetails[product]) unassignedDetails[product] = [];
-                        unassignedDetails[product].push(csData.name);
+            (allOrdersData || []).forEach(order => {
+                const produk = extractProduk(order.jumlah);
+                if (!produk || !order.cs) return;
+                
+                const key = `${order.cs}|${produk}`;
+                if (assignedSet.has(key)) {
+                    assignedOrders++;
+                } else {
+                    unassignedOrders++;
+                    if (!unassignedByProduct[produk]) {
+                        unassignedByProduct[produk] = new Set();
                     }
-                });
+                    unassignedByProduct[produk].add(order.cs);
+                }
             });
             
-            const unassignedHTML = Object.keys(unassignedDetails).length > 0 ? `
-                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
-                    <div style="font-weight: 700; font-size: 13px; color: #64748b; margin-bottom: 8px;">Detail Belum Ter-Assign:</div>
-                    ${Object.keys(unassignedDetails).map(prod => `
-                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
-                            • <strong>${prod}</strong>: ${unassignedDetails[prod].length} CS (${unassignedDetails[prod].join(', ')})
-                        </div>
-                    `).join('')}
+            const totalOrders = assignedOrders + unassignedOrders;
+            const percentage = totalOrders > 0 ? ((assignedOrders / totalOrders) * 100).toFixed(1) : 0;
+            
+            const unassignedHTML = Object.keys(unassignedByProduct).length > 0 ? `
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #fee2e2;">
+                    <div style="font-weight: 700; font-size: 13px; color: #991b1b; margin-bottom: 8px;">⚠️ Detail Belum Ter-Assign:</div>
+                    ${Object.keys(unassignedByProduct).sort().map(prod => {
+                        const csList = Array.from(unassignedByProduct[prod]).sort();
+                        return `
+                            <div style="font-size: 12px; color: #7f1d1d; margin-bottom: 4px; background: #fef2f2; padding: 6px 10px; border-radius: 6px;">
+                                • <strong>${prod}</strong>: ${csList.length} CS (${csList.join(', ')})
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
-            ` : '';
+            ` : '<div style="margin-top: 12px; color: #10b981; font-size: 13px; font-weight: 600;">✅ Semua orderan sudah ter-assign!</div>';
             
             statsDiv.innerHTML = `
-                <div class="card" style="background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); border-left: 4px solid #667eea;">
-                    <div style="font-weight: 700; font-size: 16px; margin-bottom: 16px; color: #1e293b;">
+                <div style="margin-bottom: 24px;">
+                    <div style="font-weight: 700; font-size: 18px; margin-bottom: 16px; color: #1e293b;">
                         📊 Statistik Assignment - ${dateFrom} ${dateFrom !== dateTo ? 's/d ' + dateTo : ''}
                     </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 8px;">
-                        <div>
-                            <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">📦 Total CS + Produk</div>
-                            <div style="font-size: 28px; font-weight: 800; color: #667eea;">${totalCombinations}</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                        <!-- Total Orderan Card -->
+                        <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">📦 Total Orderan</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">${totalOrders}</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Periode: ${dateFrom} - ${dateTo}</div>
                         </div>
-                        <div>
-                            <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">✅ Sudah Ter-Assign</div>
-                            <div style="font-size: 28px; font-weight: 800; color: #10b981;">${assigned} <span style="font-size: 16px; color: #64748b;">(${percentage}%)</span></div>
+                        
+                        <!-- Sudah Ter-Assign Card -->
+                        <div class="card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">✅ Sudah Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">${assignedOrders}</div>
+                            <div style="font-size: 14px; font-weight: 600;">${percentage}% dari total</div>
                         </div>
-                        <div>
-                            <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">⚠️ Belum Ter-Assign</div>
-                            <div style="font-size: 28px; font-weight: 800; color: ${unassigned > 0 ? '#ef4444' : '#94a3b8'};">${unassigned}</div>
+                        
+                        <!-- Belum Ter-Assign Card -->
+                        <div class="card" style="background: ${unassignedOrders > 0 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'}; color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">⚠️ Belum Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">${unassignedOrders}</div>
+                            <div style="font-size: 14px; font-weight: 600;">${unassignedOrders > 0 ? 'Perlu ditangani!' : 'Semua selesai!'}</div>
                         </div>
                     </div>
-                    ${unassignedHTML}
+                    
+                    ${unassignedOrders > 0 ? `
+                        <div class="card" style="background: #fef2f2; border-left: 4px solid #ef4444;">
+                            ${unassignedHTML}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
