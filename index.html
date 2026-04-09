@@ -558,6 +558,9 @@
                 lastWeek.setDate(lastWeek.getDate() - 7);
                 document.getElementById('adminDateTo').value = today.toISOString().split('T')[0];
                 document.getElementById('adminDateFrom').value = lastWeek.toISOString().split('T')[0];
+                
+                // Show empty stats placeholder
+                showEmptyStats();
             } else if (role === 'spv') {
                 document.getElementById('spvView').classList.remove('hidden');
                 document.getElementById('spvUsername').textContent = currentUser.username;
@@ -928,6 +931,41 @@
             
             renderGrid();
             updateAssignmentStats();
+        }
+
+        function showEmptyStats() {
+            const statsDiv = document.getElementById('assignmentStats');
+            if (!statsDiv) return;
+            
+            statsDiv.innerHTML = `
+                <div style="margin-bottom: 24px;">
+                    <div style="font-weight: 700; font-size: 18px; margin-bottom: 16px; color: #1e293b;">
+                        📊 Statistik Assignment
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                        <!-- Total Orderan Card -->
+                        <div class="card" style="background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">📦 Total Orderan</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">-</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Pilih tanggal & klik Load CS</div>
+                        </div>
+                        
+                        <!-- Sudah Ter-Assign Card -->
+                        <div class="card" style="background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">✅ Sudah Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">-</div>
+                            <div style="font-size: 14px; font-weight: 600;">-</div>
+                        </div>
+                        
+                        <!-- Belum Ter-Assign Card -->
+                        <div class="card" style="background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">⚠️ Belum Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">-</div>
+                            <div style="font-size: 14px; font-weight: 600;">Belum ada data</div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         async function updateAssignmentStats() {
