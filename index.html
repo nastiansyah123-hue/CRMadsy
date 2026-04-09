@@ -325,28 +325,9 @@
                 </div>
                 <div class="user-info">
                     <span class="role-badge role-crm">CRM</span>
-                    <span id="crmSubRoleBadge" style="font-size: 11px; padding: 4px 8px; background: #f1f5f9; border-radius: 6px; margin-right: 8px;"></span>
                     <span id="crmUsername" style="font-weight: 600;"></span>
                     <button onclick="loadOrders()" class="btn btn-primary btn-small">🔄</button>
                     <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
-                </div>
-            </div>
-
-            <!-- Menu khusus Manager -->
-            <div id="crmManagerMenu" class="hidden" style="margin-bottom: 24px;">
-                <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px;">🎯 Manager Tools</h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
-                        <button onclick="exportToExcel()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
-                            📊 Export Excel
-                        </button>
-                        <button onclick="showAnalytics()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
-                            📈 Analytics
-                        </button>
-                        <button onclick="showTeamPerformance()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
-                            👥 Team Performance
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -558,21 +539,6 @@
                 document.getElementById('crmView').classList.remove('hidden');
                 document.getElementById('crmUsername').textContent = currentUser.username;
                 document.getElementById('crmTitle').textContent = currentUser.username.toUpperCase();
-                
-                // Show sub_role badge
-                const subRole = currentUser.sub_role || 'operator';
-                const subRoleBadge = document.getElementById('crmSubRoleBadge');
-                subRoleBadge.textContent = subRole.toUpperCase();
-                subRoleBadge.style.background = subRole === 'manager' ? '#10b981' : '#f1f5f9';
-                subRoleBadge.style.color = subRole === 'manager' ? 'white' : '#64748b';
-                
-                // Show/hide manager menu
-                const managerMenu = document.getElementById('crmManagerMenu');
-                if (subRole === 'manager') {
-                    managerMenu.classList.remove('hidden');
-                } else {
-                    managerMenu.classList.add('hidden');
-                }
                 
                 await loadAssignments();
                 await loadOrders();
@@ -1108,85 +1074,6 @@
             await loadOrders();
             closeEditModal();
             alert('✅ Updated!');
-        }
-
-        // Manager-only functions
-        function exportToExcel() {
-            if (currentUser.sub_role !== 'manager') {
-                alert('❌ Fitur ini khusus untuk Manager!');
-                return;
-            }
-            
-            // Convert orders to CSV
-            const csv = [
-                ['Tanggal', 'Nama', 'No HP', 'Alamat', 'Pesanan', 'Pembayaran', 'RESI', 'Status', 'CS'].join(','),
-                ...filtered.map(o => [
-                    o.tanggal || '',
-                    `"${(o.nama || '').replace(/"/g, '""')}"`,
-                    o.hp || '',
-                    `"${(o.alamat || '').replace(/"/g, '""')}"`,
-                    o.pesanan || '',
-                    o.pembayaran || '',
-                    o.resi || '',
-                    o.status || '',
-                    o.cs || ''
-                ].join(','))
-            ].join('\n');
-            
-            // Download
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            
-            alert('✅ Data berhasil di-export!');
-        }
-
-        function showAnalytics() {
-            if (currentUser.sub_role !== 'manager') {
-                alert('❌ Fitur ini khusus untuk Manager!');
-                return;
-            }
-            
-            const total = filtered.length;
-            const pending = filtered.filter(o => o.status === 'Pending').length;
-            const delivered = filtered.filter(o => o.status === 'Delivered').length;
-            const cancelled = filtered.filter(o => o.status === 'Cancelled').length;
-            
-            const msg = `📊 ANALYTICS REPORT\n\n` +
-                        `Total Orders: ${total}\n` +
-                        `Pending: ${pending} (${(pending/total*100).toFixed(1)}%)\n` +
-                        `Delivered: ${delivered} (${(delivered/total*100).toFixed(1)}%)\n` +
-                        `Cancelled: ${cancelled} (${(cancelled/total*100).toFixed(1)}%)\n\n` +
-                        `Conversion Rate: ${(delivered/total*100).toFixed(1)}%`;
-            
-            alert(msg);
-        }
-
-        function showTeamPerformance() {
-            if (currentUser.sub_role !== 'manager') {
-                alert('❌ Fitur ini khusus untuk Manager!');
-                return;
-            }
-            
-            // Group by CS
-            const byCS = {};
-            filtered.forEach(o => {
-                if (!byCS[o.cs]) byCS[o.cs] = { total: 0, delivered: 0 };
-                byCS[o.cs].total++;
-                if (o.status === 'Delivered') byCS[o.cs].delivered++;
-            });
-            
-            let msg = '👥 TEAM PERFORMANCE\n\n';
-            Object.keys(byCS).sort().forEach(cs => {
-                const perf = byCS[cs];
-                const rate = (perf.delivered / perf.total * 100).toFixed(1);
-                msg += `${cs}: ${perf.delivered}/${perf.total} (${rate}%)\n`;
-            });
-            
-            alert(msg);
         }
 
         // Init
