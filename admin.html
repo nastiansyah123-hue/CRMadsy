@@ -159,17 +159,26 @@
             const dateFromUTC = new Date(thirtyDaysAgo.toISOString().split('T')[0] + 'T00:00:00+07:00').toISOString();
             const dateToUTC = new Date(todayWIB.toISOString().split('T')[0] + 'T23:59:59+07:00').toISOString();
 
-            const { data, error } = await sbData
-                .from('all_orderan')
-                .select('cs, jumlah, created_at')
-                .ilike('sumber', 'Validasi')
-                .gte('created_at', dateFromUTC)
-                .lte('created_at', dateToUTC)
-                .range(0, 99999);
-
-            if (error || !data) {
-                alertEl.innerHTML = '';
-                return;
+            let data = [];
+            let pgIdx = 0;
+            const pgSize = 1000;
+            let pgMore = true;
+            while (pgMore) {
+                const { data: chunk, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs, jumlah, created_at')
+                    .ilike('sumber', 'Validasi')
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(pgIdx * pgSize, (pgIdx + 1) * pgSize - 1);
+                if (error) { alertEl.innerHTML = ''; return; }
+                if (chunk && chunk.length > 0) {
+                    data = data.concat(chunk);
+                    pgMore = chunk.length === pgSize;
+                    pgIdx++;
+                } else {
+                    pgMore = false;
+                }
             }
 
             const unassignedByDate = {};
@@ -590,13 +599,26 @@
             const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
             const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
 
-            const { data: allOrdersData } = await sbData
-                .from('all_orderan')
-                .select('cs, jumlah')
-                .ilike('sumber', 'Validasi')
-                .gte('created_at', dateFromUTC)
-                .lte('created_at', dateToUTC)
-                .range(0, 99999);
+            let allOrdersData = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+            while (hasMore) {
+                const { data: chunk } = await sbData
+                    .from('all_orderan')
+                    .select('cs, jumlah')
+                    .ilike('sumber', 'Validasi')
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+                if (chunk && chunk.length > 0) {
+                    allOrdersData = allOrdersData.concat(chunk);
+                    hasMore = chunk.length === pageSize;
+                    page++;
+                } else {
+                    hasMore = false;
+                }
+            }
 
             const { data: assignmentsData } = await sbApp.from('crm_assignments')
                 .select('*')
