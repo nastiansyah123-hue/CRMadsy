@@ -756,16 +756,20 @@
 
             document.getElementById('adminUsername').textContent = currentUser.username;
 
-            await loadUsers();
-            await loadAssignments();
-            renderAdminCRMSelect();
-
+            // Pasang listener & set tanggal dulu sebelum async calls
+            document.addEventListener('dateRangeApplied', () => updateAssignmentStats());
             drpSetPreset('7days');
             drpApplyToInputs();
             syncDateLabel2();
 
-            // Auto-update stats saat date picker di-apply
-            document.addEventListener('dateRangeApplied', () => updateAssignmentStats());
+            // Load data — pakai try-catch supaya adminShowSection tetap jalan walau error
+            try {
+                await loadUsers();
+                await loadAssignments();
+                renderAdminCRMSelect();
+            } catch(e) {
+                console.error('Error loading data:', e);
+            }
 
             adminShowSection('dashboard');
         };
