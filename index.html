@@ -537,6 +537,15 @@
         let editId = null;
         let selectedOrders = new Set(); // Track selected order IDs
 
+        // Helper: Escape HTML untuk mencegah XSS / broken onclick
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
         // Helper: Extract produk from Jumlah column
         function extractProduk(jumlahText) {
             if (!jumlahText) return null;
@@ -762,92 +771,33 @@
 
         async function loadAllCSNow() {
             if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
-            
-            try {
-                console.log('🔍 Loading all CS...');
-                
-                const { data, error, count } = await sbData
-                    .from('all_orderan')
-                    .select('cs', { count: 'exact' })
-                    .range(0, 99999); // Fetch up to 100k rows
-                
-                console.log('📊 Query result:', {
-                    totalRows: data?.length || 0,
-                    totalCount: count
-                });
-                
-                if (error) throw error;
-                
-                if (data && data.length > 0) {
-                    allCS = [...new Set(data.map(d => d.cs).filter(Boolean))].sort();
-                    
-                    console.log('✅ Unique CS found:', {
-                        totalCS: allCS.length,
-                        csList: allCS,
-                        fromOrderan: data.length,
-                        totalInDB: count
-                    });
-                    
-                    updateAdminCSTotal();
-                    
-                    let message = `✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`;
-                    if (count > data.length) {
-                        message += `\n⚠️ Total data di DB: ${count} (hanya ${data.length} yang di-load)`;
-                    }
-                    
-                    alert(message);
-                    
-                    if (currentCRM) {
-                        renderAdminCSGrid();
-                        document.getElementById('adminCsSelection').classList.remove('hidden');
-                    }
-                } else {
-                    alert('❌ Tidak ada data!');
-                }
-            } catch (error) {
-                console.error('Error loading CS:', error);
-                alert('Error: ' + error.message);
-            }
-        }
 
-        async function loadAllCSNow() {
-            if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
-            
             try {
-                // Try RPC first
-                const { data, error } = await sbData.rpc('get_all_distinct_cs');
-                
-                // Fallback if RPC doesn't exist
-                if (error && error.code === '42883') {
-                    console.log('Using fallback query...');
-                    const result = await sbData.from('all_orderan')
-                        .select('cs')
-                        .limit(100000);
-                    
-                    if (result.error) throw result.error;
-                    
-                    if (result.data && result.data.length > 0) {
-                        allCS = [...new Set(result.data.map(d => d.cs).filter(Boolean))].sort();
-                        updateAdminCSTotal();
-                        alert(`✅ Berhasil load ${allCS.length} CS dari ${result.data.length} orderan`);
-                        
-                        if (currentCRM) {
-                            renderAdminCSGrid();
-                            document.getElementById('adminCsSelection').classList.remove('hidden');
-                        }
-                    } else {
-                        alert('❌ Tidak ada data!');
-                    }
-                    return;
-                }
-                
+                const { data, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs, jumlah')
+                    .range(0, 99999);
+
                 if (error) throw error;
-                
+
                 if (data && data.length > 0) {
-                    allCS = data.map(d => d.cs).filter(Boolean).sort();
+                    const csWithProducts = {};
+                    data.forEach(row => {
+                        if (!row.cs) return;
+                        const produk = extractProduk(row.jumlah);
+                        if (!produk) return;
+                        if (!csWithProducts[row.cs]) csWithProducts[row.cs] = new Set();
+                        csWithProducts[row.cs].add(produk);
+                    });
+
+                    allCS = Object.keys(csWithProducts).sort().map(cs => ({
+                        name: cs,
+                        products: Array.from(csWithProducts[cs]).sort()
+                    }));
+
                     updateAdminCSTotal();
-                    alert(`✅ Berhasil load ${allCS.length} CS`);
-                    
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
+
                     if (currentCRM) {
                         renderAdminCSGrid();
                         document.getElementById('adminCsSelection').classList.remove('hidden');
@@ -963,8 +913,8 @@
                                 const isSelected = selectedCS.includes(key);
                                 return `
                                     <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 13px;">
-                                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCS('${csName}', '${product}')">
-                                        <span>CS ${csName}</span>
+                                        <input type="checkbox" ${isSelected ? 'checked' : ''} data-cs="${escapeHtml(csName)}" data-product="${escapeHtml(product)}" onchange="toggleCS(this.dataset.cs, this.dataset.product)">
+                                        <span>CS ${escapeHtml(csName)}</span>
                                     </label>
                                 `;
                             }).join('')}
@@ -1272,12 +1222,14 @@
         // Orders
         async function loadOrders() {
             if (!assignments[currentUser.username]) {
+                document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Belum ada assignment untuk akun ini.</td></tr>';
                 return;
             }
-            
+
             const assignedData = assignmentDates[currentUser.username] || [];
-            
+
             if (!assignedData.length) {
+                document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Belum ada assignment untuk akun ini.</td></tr>';
                 return;
             }
             
@@ -1327,7 +1279,9 @@
                 const orderProduk = extractProduk(order.jumlah);
                 if (!orderProduk) return false;
                 
-                const orderDate = order.created_at ? order.created_at.split('T')[0] : null;
+                const orderDate = order.created_at
+                    ? new Date(new Date(order.created_at).getTime() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+                    : null;
                 if (!orderDate) return false;
                 
                 // Check if matches any assignment
@@ -1445,6 +1399,8 @@
             document.getElementById('filterCS').value = '';
             document.getElementById('filterProduk').value = '';
             document.getElementById('filterEkspedisi').value = '';
+            document.getElementById('crmSearch').value = '';
+            document.getElementById('crmFilter').value = 'all';
             applyFilters();
         }
         
@@ -1567,7 +1523,7 @@
         }
 
         function exportSelectedToCSV() {
-            const selected = filtered.filter(o => selectedOrders.has(o.id));
+            const selected = orders.filter(o => selectedOrders.has(o.id));
             if (!selected.length) {
                 alert('Pilih orderan dulu dengan checklist!');
                 return;
