@@ -127,14 +127,18 @@
         // =====================
         function adminShowSection(section) {
             ['dashboard', 'assignment', 'riwayat'].forEach(s => {
-                document.getElementById('adminSec-' + s).classList.remove('sec-active');
-                document.getElementById('adminNav-' + s).classList.remove('nav-active');
+                const sec = document.getElementById('adminSec-' + s);
+                const nav = document.getElementById('adminNav-' + s);
+                if (sec) sec.style.display = 'none';
+                if (nav) nav.classList.remove('nav-active');
             });
-            document.getElementById('adminSec-' + section).classList.add('sec-active');
-            document.getElementById('adminNav-' + section).classList.add('nav-active');
+            const activeSection = document.getElementById('adminSec-' + section);
+            const activeNav    = document.getElementById('adminNav-' + section);
+            if (activeSection) activeSection.style.display = 'block';
+            if (activeNav)     activeNav.classList.add('nav-active');
 
             if (section === 'dashboard') loadDashboard();
-            if (section === 'riwayat') loadRiwayat();
+            if (section === 'riwayat')   loadRiwayat();
         }
 
         // ===== DASHBOARD =====
@@ -738,9 +742,6 @@
             }
         }
 
-        // Auto-update stats saat date picker di-apply
-        document.addEventListener('dateRangeApplied', () => updateAssignmentStats());
-
         // =====================
         // WINDOW ONLOAD
         // =====================
@@ -748,17 +749,10 @@
             await initSupabase();
 
             const stored = sessionStorage.getItem('user');
-            if (!stored) {
-                window.location.href = 'index.html';
-                return;
-            }
+            if (!stored) { window.location.href = 'index.html'; return; }
 
             currentUser = JSON.parse(stored);
-
-            if (currentUser.role !== 'admin') {
-                window.location.href = 'index.html';
-                return;
-            }
+            if (currentUser.role !== 'admin') { window.location.href = 'index.html'; return; }
 
             document.getElementById('adminUsername').textContent = currentUser.username;
 
@@ -769,6 +763,9 @@
             drpSetPreset('7days');
             drpApplyToInputs();
             syncDateLabel2();
+
+            // Auto-update stats saat date picker di-apply
+            document.addEventListener('dateRangeApplied', () => updateAssignmentStats());
 
             adminShowSection('dashboard');
         };
