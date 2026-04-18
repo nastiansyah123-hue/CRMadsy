@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM System - SPV</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="background: #f8fafc; min-height: 100vh;">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1 class="header-title">SPV Panel</h1>
+                <p style="color: #64748b; font-size: 14px;">Kelola User & Monitor Assignment</p>
+            </div>
+            <div class="user-info">
+                <span class="role-badge role-spv">SPV</span>
+                <span id="spvUsername" style="font-weight: 600;"></span>
+                <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">👥 Manajemen User</h2>
+            <button onclick="showAddUserModal()" class="btn btn-primary" style="margin-bottom: 16px;">+ Tambah User</button>
+            <div id="userList" class="user-list"></div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">📊 Assignment Overview</h2>
+            <div id="spvAssignmentList"></div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">📈 Statistik per CRM</h2>
+            <div id="spvStatsGrid" class="stats-grid"></div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="font-size: 20px; margin-bottom: 24px;">Tambah User</h2>
+            <div style="display: grid; gap: 16px; margin-bottom: 24px;">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" id="newUsername" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="newPassword" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <select id="newRole" class="form-select">
+                        <option value="admin">Admin Data</option>
+                        <option value="crm">CRM</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="addUser()" class="btn btn-success" style="flex: 1;">Tambah</button>
+                <button onclick="closeAddUserModal()" class="btn btn-secondary" style="flex: 1;">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script>
+        // =====================
+        // SPV FUNCTIONS
+        // =====================
+        function renderUserList() {
+            const list = document.getElementById('userList');
+            list.innerHTML = users.map(u => `
+                <div class="user-item">
+                    <div>
+                        <strong>${u.username}</strong>
+                        <span class="role-badge role-${u.role}" style="margin-left: 8px;">${u.role.toUpperCase()}</span>
+                    </div>
+                    ${u.role !== 'spv' ? `<button onclick="deleteUser(${u.id})" class="btn btn-danger btn-small">Hapus</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function showAddUserModal() {
+            document.getElementById('addUserModal').classList.remove('hidden');
+        }
+
+        function closeAddUserModal() {
+            document.getElementById('addUserModal').classList.add('hidden');
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+        }
+
+        async function addUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value.trim();
+            const role = document.getElementById('newRole').value;
+
+            if (!username || !password) return alert('Isi semua!');
+
+            const { error } = await sbApp.from('users').insert({ username, password, role });
+            if (error) return alert('Username sudah ada!');
+
+            await loadUsers();
+            renderUserList();
+            closeAddUserModal();
+            alert('✅ User ditambahkan!');
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Hapus user?')) return;
+            await sbApp.from('users').delete().eq('id', id);
+            await loadUsers();
+            renderUserList();
+        }
+
+        function renderSPVAssignmentList() {
+            const list = document.getElementById('spvAssignmentList');
+            if (!Object.keys(assignments).length) {
+                list.innerHTML = '<p style="color: #94a3b8;">Belum ada</p>';
+                return;
+            }
+            list.innerHTML = Object.entries(assignments).map(([c, cs]) => `
+                <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px;">
+                    <div style="font-weight: 700; margin-bottom: 12px;">${c}</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${cs.map(s => `<span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">${s}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadSPVStats() {
+            const grid = document.getElementById('spvStatsGrid');
+            const crmUsers = Object.keys(assignments);
+
+            if (!crmUsers.length) {
+                grid.innerHTML = '<p style="color: #94a3b8;">Belum ada</p>';
+                return;
+            }
+
+            let html = '';
+            for (const crm of crmUsers) {
+                const { data } = await sbData.from('all_orderan').select('*').in('cs', assignments[crm]).range(0, 99999);
+                if (data) {
+                    const total = data.length;
+                    const pending = data.filter(o => o.status === 'Pending').length;
+                    const delivered = data.filter(o => o.status === 'Delivered').length;
+
+                    html += `
+                        <div class="stat-card" style="border-left: 4px solid #667eea;">
+                            <div style="font-weight: 700; margin-bottom: 12px;">${crm}</div>
+                            <div style="font-size: 12px; color: #64748b;">Total: <strong>${total}</strong></div>
+                            <div style="font-size: 12px; color: #64748b;">Pending: <strong>${pending}</strong></div>
+                            <div style="font-size: 12px; color: #64748b;">Delivered: <strong>${delivered}</strong></div>
+                        </div>
+                    `;
+                }
+            }
+            grid.innerHTML = html;
+        }
+
+        // =====================
+        // WINDOW ONLOAD
+        // =====================
+        window.onload = async function() {
+            await initSupabase();
+
+            const stored = sessionStorage.getItem('user');
+            if (!stored) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentUser = JSON.parse(stored);
+
+            if (currentUser.role !== 'spv') {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('spvUsername').textContent = currentUser.username;
+
+            await loadUsers();
+            await loadAssignments();
+            await loadSPVStats();
+            renderUserList();
+            renderSPVAssignmentList();
+        };
+    </script>
+</body>
+</html>

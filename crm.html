@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM System - CRM View</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="background: #f8fafc; min-height: 100vh;">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1 class="header-title" id="crmTitle">Dashboard</h1>
+            </div>
+            <div class="user-info">
+                <span class="role-badge role-crm">CRM</span>
+                <span id="crmUsername" style="font-weight: 600;"></span>
+                <button onclick="loadOrders()" class="btn btn-primary btn-small">🔄</button>
+                <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card" style="border-left: 4px solid #667eea;">
+                <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
+                <div class="stat-value" style="color: #667eea;" id="statTotal">0</div>
+                <div style="font-size: 13px; color: #64748b;">Total</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+                <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
+                <div class="stat-value" style="color: #f59e0b;" id="statPending">0</div>
+                <div style="font-size: 13px; color: #64748b;">Pending</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #10b981;">
+                <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
+                <div class="stat-value" style="color: #10b981;" id="statDelivered">0</div>
+                <div style="font-size: 13px; color: #64748b;">Delivered</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #ef4444;">
+                <div style="font-size: 32px; margin-bottom: 8px;">❌</div>
+                <div class="stat-value" style="color: #ef4444;" id="statCancelled">0</div>
+                <div style="font-size: 13px; color: #64748b;">Cancelled</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <input type="text" id="crmSearch" class="search-input" placeholder="🔍 Cari..." onkeyup="filterOrders()">
+            <select id="crmFilter" class="form-select" onchange="filterOrders()">
+                <option value="all">Semua</option>
+                <option value="Pending">Pending</option>
+                <option value="Processing">Processing</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+
+        <!-- Filter Section -->
+        <div style="margin-bottom: 16px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">📅 Tanggal Assign</label>
+                    <input type="date" id="filterTanggalAssign" class="form-input" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">👤 Pilih CS</label>
+                    <select id="filterCS" class="form-select" onchange="applyFilters()">
+                        <option value="">Semua CS</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">📦 Pilih Produk</label>
+                    <select id="filterProduk" class="form-select" onchange="applyFilters()">
+                        <option value="">Semua Produk</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">🚚 Pilih Ekspedisi</label>
+                    <select id="filterEkspedisi" class="form-select" onchange="applyFilters()">
+                        <option value="">Semua Ekspedisi</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
+                <button onclick="clearFilters()" class="btn btn-secondary btn-small">🔄 Reset Filter</button>
+                <span id="filterInfo" style="font-size: 12px; color: #64748b;"></span>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+            <button onclick="exportSelectedToCSV()" class="btn btn-primary">📥 Download CSV</button>
+            <button onclick="selectAllOrders()" class="btn btn-secondary">☑️ Select All</button>
+            <button onclick="deselectAllOrders()" class="btn btn-secondary">☐ Deselect All</button>
+            <span id="selectedCount" style="margin-left: auto; color: #64748b; font-size: 14px;">0 selected</span>
+            <select id="rowsPerPage" class="form-select" style="width: auto;" onchange="changeRowsPerPage()">
+                <option value="20">20 per halaman</option>
+                <option value="50">50 per halaman</option>
+                <option value="100">100 per halaman</option>
+            </select>
+        </div>
+
+        <div id="paginationInfo" style="margin-bottom: 12px; font-size: 14px; color: #64748b;"></div>
+
+        <div class="card" style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
+                        <th>Tanggal</th><th>Nama</th><th>No HP</th>
+                        <th>Produk</th>
+                        <th>Desa</th><th>Kecamatan</th><th>Kabupaten</th><th>Provinsi</th>
+                        <th>Pesanan</th><th>Pembayaran</th><th>RESI</th><th>Status</th>
+                        <th>CS</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="crmTbody">
+                    <tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="editModalTitle" style="font-size: 20px; margin-bottom: 24px;">Edit Order</h2>
+            <div style="display: grid; gap: 16px; margin-bottom: 24px;">
+                <div class="form-group">
+                    <label class="form-label">Resi</label>
+                    <input type="text" id="editResi" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select id="editStatus" class="form-select">
+                        <option>Pending</option><option>Processing</option><option>Shipped</option>
+                        <option>Delivered</option><option>Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Team</label>
+                    <input type="text" id="editTeam" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Update CRM</label>
+                    <input type="text" id="editCRM" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Retur</label>
+                    <input type="text" id="editRetur" class="form-input">
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="updateOrder()" class="btn btn-success" style="flex: 1;">Simpan</button>
+                <button onclick="closeEditModal()" class="btn btn-secondary" style="flex: 1;">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script>
+        // =====================
+        // CRM FUNCTIONS
+        // =====================
+        async function loadOrders() {
+            if (!assignments[currentUser.username]) {
+                document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Belum ada assignment untuk akun ini.</td></tr>';
+                return;
+            }
+
+            const assignedData = assignmentDates[currentUser.username] || [];
+
+            if (!assignedData.length) {
+                document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Belum ada assignment untuk akun ini.</td></tr>';
+                return;
+            }
+
+            const uniqueCS = [...new Set(assignedData.map(a => a.cs))];
+            const dateRanges = assignedData.map(a => ({ from: a.dateFrom, to: a.dateTo }));
+            const minDate = dateRanges.reduce((min, r) => r.from < min ? r.from : min, dateRanges[0].from);
+            const maxDate = dateRanges.reduce((max, r) => r.to > max ? r.to : max, dateRanges[0].to);
+
+            const dateFromUTC = new Date(minDate + 'T00:00:00+07:00').toISOString();
+            const dateToUTC = new Date(maxDate + 'T23:59:59+07:00').toISOString();
+
+            console.log(`🔍 Loading orders for ${uniqueCS.length} CS`);
+
+            allOrders = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data } = await sbData
+                    .from('all_orderan')
+                    .select('*')
+                    .ilike('sumber', 'Validasi')
+                    .in('cs', uniqueCS)
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+
+                if (data && data.length > 0) {
+                    allOrders = allOrders.concat(data);
+                    console.log(`📄 Page ${page + 1}: ${data.length} rows`);
+
+                    if (data.length < pageSize) {
+                        hasMore = false;
+                    } else {
+                        page++;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            const matchingOrders = allOrders.filter(order => {
+                const orderProduk = extractProduk(order.jumlah);
+                if (!orderProduk) return false;
+
+                const orderDate = order.created_at
+                    ? new Date(new Date(order.created_at).getTime() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+                    : null;
+                if (!orderDate) return false;
+
+                return assignedData.some(assignment => {
+                    return assignment.cs === order.cs &&
+                           assignment.produk === orderProduk &&
+                           orderDate >= assignment.dateFrom &&
+                           orderDate <= assignment.dateTo;
+                });
+            });
+
+            const uniqueOrders = Array.from(
+                new Map(matchingOrders.map(item => [item.id, item])).values()
+            );
+            uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            orders = uniqueOrders;
+            console.log(`✅ Loaded ${uniqueOrders.length} orders (filtered by CS+Produk+Date)`);
+
+            populateFilterDropdowns(assignedData);
+            applyFilters();
+        }
+
+        function populateFilterDropdowns(assignedData) {
+            const csSet = new Set(assignedData.map(a => a.cs));
+            const csSelect = document.getElementById('filterCS');
+            csSelect.innerHTML = '<option value="">Semua CS</option>' +
+                Array.from(csSet).sort().map(cs => `<option value="${cs}">${cs}</option>`).join('');
+
+            const produkSet = new Set(assignedData.map(a => a.produk));
+            const produkSelect = document.getElementById('filterProduk');
+            produkSelect.innerHTML = '<option value="">Semua Produk</option>' +
+                Array.from(produkSet).sort().map(p => `<option value="${p}">${p}</option>`).join('');
+
+            const ekspedisiSet = new Set();
+            orders.forEach(order => {
+                const eks = extractEkspedisi(order.pembayaran);
+                if (eks) ekspedisiSet.add(eks);
+            });
+            const ekspedisiSelect = document.getElementById('filterEkspedisi');
+            ekspedisiSelect.innerHTML = '<option value="">Semua Ekspedisi</option>' +
+                Array.from(ekspedisiSet).sort().map(e => `<option value="${e}">${e}</option>`).join('');
+        }
+
+        function applyFilters() {
+            const q = document.getElementById('crmSearch').value.toLowerCase();
+            const statusFilter = document.getElementById('crmFilter').value;
+            const tanggalAssign = document.getElementById('filterTanggalAssign').value;
+            const csFilter = document.getElementById('filterCS').value;
+            const produkFilter = document.getElementById('filterProduk').value;
+            const ekspedisiFilter = document.getElementById('filterEkspedisi').value;
+
+            const assignedData = assignmentDates[currentUser.username] || [];
+
+            filteredOrders = orders.filter(o => {
+                if (q && !(o.nama?.toLowerCase().includes(q) || o.hp?.includes(q) || o.resi?.toLowerCase().includes(q))) {
+                    return false;
+                }
+
+                if (statusFilter !== 'all' && o.status !== statusFilter) {
+                    return false;
+                }
+
+                if (tanggalAssign) {
+                    const orderProduk = extractProduk(o.jumlah);
+                    const hasAssignmentOnDate = assignedData.some(a =>
+                        a.cs === o.cs &&
+                        a.produk === orderProduk &&
+                        a.dateFrom === tanggalAssign
+                    );
+                    if (!hasAssignmentOnDate) return false;
+                }
+
+                if (csFilter && o.cs !== csFilter) {
+                    return false;
+                }
+
+                if (produkFilter) {
+                    const orderProduk = extractProduk(o.jumlah);
+                    if (orderProduk !== produkFilter) return false;
+                }
+
+                if (ekspedisiFilter) {
+                    const orderEkspedisi = extractEkspedisi(o.pembayaran);
+                    if (orderEkspedisi !== ekspedisiFilter) return false;
+                }
+
+                return true;
+            });
+
+            currentPage = 1;
+
+            updateStats();
+            renderTableWithPagination();
+            updateFilterInfo();
+        }
+
+        function clearFilters() {
+            document.getElementById('filterTanggalAssign').value = '';
+            document.getElementById('filterCS').value = '';
+            document.getElementById('filterProduk').value = '';
+            document.getElementById('filterEkspedisi').value = '';
+            document.getElementById('crmSearch').value = '';
+            document.getElementById('crmFilter').value = 'all';
+            applyFilters();
+        }
+
+        function updateFilterInfo() {
+            const activeFilters = [];
+            if (document.getElementById('filterTanggalAssign').value) activeFilters.push('Tanggal');
+            if (document.getElementById('filterCS').value) activeFilters.push('CS');
+            if (document.getElementById('filterProduk').value) activeFilters.push('Produk');
+            if (document.getElementById('filterEkspedisi').value) activeFilters.push('Ekspedisi');
+
+            const info = document.getElementById('filterInfo');
+            if (activeFilters.length) {
+                info.textContent = `Filter aktif: ${activeFilters.join(', ')}`;
+            } else {
+                info.textContent = '';
+            }
+        }
+
+        function changeRowsPerPage() {
+            rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
+            currentPage = 1;
+            renderTableWithPagination();
+        }
+
+        function filterOrders() {
+            applyFilters();
+        }
+
+        function renderTableWithPagination() {
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedOrders = filteredOrders.slice(start, end);
+
+            const total = filteredOrders.length;
+            const showing = Math.min(end, total);
+            document.getElementById('paginationInfo').textContent =
+                `Menampilkan ${total > 0 ? start + 1 : 0}-${showing} dari ${total} orderan`;
+
+            filtered = paginatedOrders;
+            renderTable();
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = filteredOrders.length;
+            document.getElementById('statPending').textContent = filteredOrders.filter(o => o.status === 'Pending').length;
+            document.getElementById('statDelivered').textContent = filteredOrders.filter(o => o.status === 'Delivered').length;
+            document.getElementById('statCancelled').textContent = filteredOrders.filter(o => o.status === 'Cancelled').length;
+        }
+
+        function renderTable() {
+            const tb = document.getElementById('crmTbody');
+            if (!filtered.length) {
+                tb.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada</td></tr>';
+                return;
+            }
+            tb.innerHTML = filtered.map(o => {
+                const date = o.tanggal || o.created_at || '-';
+                const produk = extractProduk(o.jumlah) || '-';
+                const isChecked = selectedOrders.has(o.id);
+
+                return `
+                <tr>
+                    <td><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleOrderSelection(${o.id})"></td>
+                    <td>${date}</td>
+                    <td style="font-weight: 600;">${o.nama || '-'}</td>
+                    <td>${o.hp || '-'}</td>
+                    <td style="font-size: 11px;">${produk}</td>
+                    <td>${o.kelurahan || '-'}</td>
+                    <td>${o.kecamatan || '-'}</td>
+                    <td>${o.kabupaten || '-'}</td>
+                    <td>${o.provinsi || '-'}</td>
+                    <td>${o.pesanan || o['jumlah pesanan'] || '-'}</td>
+                    <td><span class="badge badge-${o.pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.pembayaran || '-'}</span></td>
+                    <td style="font-family: monospace; font-size: 11px;">${o.resi || '-'}</td>
+                    <td><span class="badge badge-${(o.status || 'processing').toLowerCase()}">${o.status || '-'}</span></td>
+                    <td>${o.cs || '-'}</td>
+                    <td><button onclick="openEditModal(${o.id})" class="btn btn-primary btn-small">Edit</button></td>
+                </tr>
+                `;
+            }).join('');
+            updateSelectedCount();
+        }
+
+        function toggleOrderSelection(id) {
+            if (selectedOrders.has(id)) {
+                selectedOrders.delete(id);
+            } else {
+                selectedOrders.add(id);
+            }
+            updateSelectedCount();
+        }
+
+        function toggleSelectAll() {
+            const checkbox = document.getElementById('selectAllCheckbox');
+            if (checkbox.checked) {
+                filtered.forEach(o => selectedOrders.add(o.id));
+            } else {
+                filtered.forEach(o => selectedOrders.delete(o.id));
+            }
+            renderTable();
+        }
+
+        function selectAllOrders() {
+            filtered.forEach(o => selectedOrders.add(o.id));
+            document.getElementById('selectAllCheckbox').checked = true;
+            renderTable();
+        }
+
+        function deselectAllOrders() {
+            selectedOrders.clear();
+            document.getElementById('selectAllCheckbox').checked = false;
+            renderTable();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = `${selectedOrders.size} selected`;
+        }
+
+        function exportSelectedToCSV() {
+            const selected = orders.filter(o => selectedOrders.has(o.id));
+            if (!selected.length) {
+                alert('Pilih orderan dulu dengan checklist!');
+                return;
+            }
+
+            const csv = [
+                ['Tanggal', 'Nama', 'No HP', 'Produk', 'Desa', 'Kecamatan', 'Kabupaten', 'Provinsi', 'Pesanan', 'Pembayaran', 'RESI', 'Status', 'CS'].join(','),
+                ...selected.map(o => [
+                    o.tanggal || o.created_at || '',
+                    `"${(o.nama || '').replace(/"/g, '""')}"`,
+                    o.hp || '',
+                    `"${(extractProduk(o.jumlah) || '').replace(/"/g, '""')}"`,
+                    o.kelurahan || '',
+                    o.kecamatan || '',
+                    o.kabupaten || '',
+                    o.provinsi || '',
+                    o.pesanan || o['jumlah pesanan'] || '',
+                    o.pembayaran || '',
+                    o.resi || '',
+                    o.status || '',
+                    o.cs || ''
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+
+            alert(`✅ ${selected.length} orderan berhasil di-download!`);
+        }
+
+        function openEditModal(id) {
+            const o = orders.find(x => x.id === id);
+            if (!o) return;
+            editId = id;
+            document.getElementById('editModalTitle').textContent = `Edit - ${o.nama}`;
+            document.getElementById('editResi').value = o.resi || '';
+            document.getElementById('editStatus').value = o.status || 'Pending';
+            document.getElementById('editTeam').value = o.team || '';
+            document.getElementById('editCRM').value = o.crm || '';
+            document.getElementById('editRetur').value = o.retur || '';
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        async function updateOrder() {
+            const updates = {
+                resi: document.getElementById('editResi').value,
+                status: document.getElementById('editStatus').value,
+                team: document.getElementById('editTeam').value,
+                crm: document.getElementById('editCRM').value,
+                retur: document.getElementById('editRetur').value
+            };
+            await sbData.from('all_orderan').update(updates).eq('id', editId);
+            await loadOrders();
+            closeEditModal();
+            alert('✅ Updated!');
+        }
+
+        // =====================
+        // WINDOW ONLOAD
+        // =====================
+        window.onload = async function() {
+            await initSupabase();
+
+            const stored = sessionStorage.getItem('user');
+            if (!stored) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentUser = JSON.parse(stored);
+
+            if (currentUser.role !== 'crm') {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('crmUsername').textContent = currentUser.username;
+            document.getElementById('crmTitle').textContent = currentUser.username.toUpperCase();
+
+            await loadAssignments();
+            await loadOrders();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM System - Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="app-layout">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-title">CRM System</div>
+                <div class="sidebar-brand-sub">Admin Data Panel</div>
+            </div>
+            <nav class="sidebar-nav">
+                <div id="adminNav-dashboard" class="nav-item nav-active" onclick="adminShowSection('dashboard')">
+                    <span class="nav-icon">📊</span> Dashboard
+                </div>
+                <div id="adminNav-assignment" class="nav-item" onclick="adminShowSection('assignment')">
+                    <span class="nav-icon">📋</span> Assignment CS
+                </div>
+                <div id="adminNav-riwayat" class="nav-item" onclick="adminShowSection('riwayat')">
+                    <span class="nav-icon">📜</span> Riwayat
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="sidebar-username" id="adminUsername"></div>
+                <span class="role-badge role-admin" style="width: fit-content;">ADMIN DATA</span>
+                <button onclick="logout()" class="btn btn-secondary btn-small" style="width: 100%; margin-top: 4px;">Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- ===== DASHBOARD ===== -->
+            <div id="adminSec-dashboard" class="admin-section sec-active">
+                <!-- Hidden inputs untuk date picker -->
+                <input type="hidden" id="adminDateFrom">
+                <input type="hidden" id="adminDateTo">
+
+                <div class="section-header">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <div class="section-title">📊 Dashboard</div>
+                            <div class="section-sub">Overview assignment CS ke CRM</div>
+                        </div>
+                        <button id="datePickerTrigger" onclick="toggleDatePicker(this)" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px;">
+                            📅 <span id="datePickerLabel">Pilih Tanggal</span> ▼
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Alert unassigned (30 hari terakhir, independen dari date picker) -->
+                <div id="dashboardAlert" style="margin-bottom: 24px;"></div>
+
+                <!-- Stats berdasarkan date picker -->
+                <div id="assignmentStats"></div>
+            </div>
+
+            <!-- ===== ASSIGNMENT CS ===== -->
+            <div id="adminSec-assignment" class="admin-section">
+                <div class="section-header">
+                    <div class="section-title">📋 Assignment CS ke CRM</div>
+                    <div class="section-sub">Assign Customer Service ke CRM berdasarkan produk & periode</div>
+                </div>
+
+                <div class="card">
+                    <div style="margin-bottom: 20px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                        <label class="form-label">📅 Filter CS: Tanggal + Sumber Validasi</label>
+                        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px;">
+                            <button onclick="toggleDatePicker(document.getElementById('datePickerTrigger'))" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 14px;">
+                                📅 <span id="datePickerLabel2"></span> ▼
+                            </button>
+                            <button onclick="loadCSByDateRange()" class="btn btn-primary">🔍 Load CS</button>
+                            <button onclick="loadAllCSNow()" class="btn btn-secondary">📋 Semua CS</button>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 12px; color: #64748b;">
+                            💡 Load CS dari orderan dengan <strong>Sumber = Validasi</strong> di periode yang dipilih
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Pilih CRM User</label>
+                        <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
+                            <option value="">-- Pilih CRM --</option>
+                        </select>
+                    </div>
+                    <div id="adminCsSelection" class="hidden">
+                        <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih) <span id="adminCSTotal" style="color: #64748b; font-weight: 400;"></span></label>
+                        <div id="adminCsGrid" class="cs-grid"></div>
+                        <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== RIWAYAT ===== -->
+            <div id="adminSec-riwayat" class="admin-section">
+                <div class="section-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div class="section-title">📜 Riwayat Assignment</div>
+                            <div class="section-sub">Semua assignment yang sudah tersimpan</div>
+                        </div>
+                        <button onclick="loadRiwayat()" class="btn btn-secondary btn-small">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div class="card" style="overflow-x: auto;">
+                    <div id="riwayatContent">
+                        <p style="color: #94a3b8; text-align: center; padding: 32px;">Memuat riwayat...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script>
+        // =====================
+        // ADMIN SIDEBAR NAV
+        // =====================
+        function adminShowSection(section) {
+            ['dashboard', 'assignment', 'riwayat'].forEach(s => {
+                document.getElementById('adminSec-' + s).classList.remove('sec-active');
+                document.getElementById('adminNav-' + s).classList.remove('nav-active');
+            });
+            document.getElementById('adminSec-' + section).classList.add('sec-active');
+            document.getElementById('adminNav-' + section).classList.add('nav-active');
+
+            if (section === 'dashboard') loadDashboard();
+            if (section === 'riwayat') loadRiwayat();
+        }
+
+        // ===== DASHBOARD =====
+        async function loadDashboard() {
+            updateAssignmentStats();
+
+            const alertEl = document.getElementById('dashboardAlert');
+            alertEl.innerHTML = `
+                <div style="padding: 16px 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0; color: #94a3b8; font-size: 13px;">
+                    🔍 Mengecek assignment 30 hari terakhir...
+                </div>`;
+
+            const today = new Date();
+            const todayWIB = new Date(today.getTime() + 7 * 60 * 60 * 1000);
+            const thirtyDaysAgo = new Date(todayWIB);
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+
+            const dateFromUTC = new Date(thirtyDaysAgo.toISOString().split('T')[0] + 'T00:00:00+07:00').toISOString();
+            const dateToUTC = new Date(todayWIB.toISOString().split('T')[0] + 'T23:59:59+07:00').toISOString();
+
+            const { data, error } = await sbData
+                .from('all_orderan')
+                .select('cs, jumlah, created_at')
+                .ilike('sumber', 'Validasi')
+                .gte('created_at', dateFromUTC)
+                .lte('created_at', dateToUTC)
+                .range(0, 99999);
+
+            if (error || !data) {
+                alertEl.innerHTML = '';
+                return;
+            }
+
+            const unassignedByDate = {};
+
+            data.forEach(order => {
+                if (!order.cs || !order.created_at) return;
+                const produk = extractProduk(order.jumlah);
+                if (!produk) return;
+
+                const orderDateWIB = new Date(new Date(order.created_at).getTime() + 7 * 60 * 60 * 1000)
+                    .toISOString().split('T')[0];
+
+                let assigned = false;
+                for (const crmName in assignmentDates) {
+                    for (const a of assignmentDates[crmName]) {
+                        if (a.cs === order.cs && a.produk === produk &&
+                            a.dateFrom <= orderDateWIB && a.dateTo >= orderDateWIB) {
+                            assigned = true;
+                            break;
+                        }
+                    }
+                    if (assigned) break;
+                }
+
+                if (!assigned) {
+                    if (!unassignedByDate[orderDateWIB]) unassignedByDate[orderDateWIB] = {};
+                    if (!unassignedByDate[orderDateWIB][produk]) unassignedByDate[orderDateWIB][produk] = new Set();
+                    unassignedByDate[orderDateWIB][produk].add(order.cs);
+                }
+            });
+
+            const dates = Object.keys(unassignedByDate).sort().reverse();
+
+            if (!dates.length) {
+                alertEl.innerHTML = `
+                    <div style="padding: 20px 24px; background: linear-gradient(135deg, #d1fae5, #a7f3d0); border-radius: 12px; border: 2px solid #10b981; display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">✅</span>
+                        <div>
+                            <div style="font-weight: 700; color: #065f46; font-size: 14px;">Semua CS sudah ter-assign!</div>
+                            <div style="font-size: 12px; color: #047857; margin-top: 2px;">Tidak ada yang perlu ditangani dalam 30 hari terakhir</div>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            let totalUnassigned = 0;
+            dates.forEach(d => Object.values(unassignedByDate[d]).forEach(cs => totalUnassigned += cs.size));
+
+            function relativeDay(dateStr) {
+                const diff = Math.round((new Date(todayWIB.toISOString().split('T')[0]) - new Date(dateStr)) / (1000 * 60 * 60 * 24));
+                if (diff === 0) return 'Hari ini';
+                if (diff === 1) return 'Kemarin';
+                return `${diff} hari lalu`;
+            }
+
+            const alertRows = dates.map(dateStr => {
+                const products = unassignedByDate[dateStr];
+                const rel = relativeDay(dateStr);
+                const rows = Object.keys(products).sort().map(prod => {
+                    const csList = Array.from(products[prod]).sort().join(', ');
+                    return `<div style="font-size: 12px; color: #7f1d1d; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span>• <strong>${prod}</strong>: ${csList} (${products[prod].size} CS)</span>
+                        <button onclick="goAssignDate('${dateStr}')" class="btn btn-danger btn-small">→ Assign</button>
+                    </div>`;
+                }).join('');
+
+                return `
+                    <div style="padding: 14px 18px; border-bottom: 1px solid #fecaca;">
+                        <div style="font-weight: 700; font-size: 13px; color: #991b1b; margin-bottom: 4px;">
+                            📅 ${dateStr} <span style="font-weight: 400; color: #b91c1c;">(${rel})</span>
+                        </div>
+                        ${rows}
+                    </div>`;
+            }).join('');
+
+            alertEl.innerHTML = `
+                <div style="border-radius: 12px; border: 2px solid #ef4444; overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 14px 20px; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">⚠️</span>
+                        <div style="color: white;">
+                            <div style="font-weight: 700; font-size: 14px;">${totalUnassigned} CS belum ter-assign dalam 30 hari terakhir</div>
+                            <div style="font-size: 11px; opacity: 0.9; margin-top: 2px;">Segera tangani agar orderan bisa diproses CRM</div>
+                        </div>
+                    </div>
+                    <div style="background: #fef2f2;">${alertRows}</div>
+                </div>`;
+        }
+
+        function goAssignDate(dateStr) {
+            drp.startDate = new Date(dateStr + 'T00:00:00');
+            drp.endDate   = new Date(dateStr + 'T00:00:00');
+            drp.activePreset = null;
+            drpApplyToInputs();
+            syncDateLabel2();
+            adminShowSection('assignment');
+        }
+
+        // ===== RIWAYAT =====
+        async function loadRiwayat() {
+            const el = document.getElementById('riwayatContent');
+            el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Memuat...</p>';
+
+            const { data, error } = await sbApp.from('crm_assignments').select('*').order('date_from', { ascending: false });
+
+            if (error || !data || !data.length) {
+                el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Belum ada riwayat assignment.</p>';
+                return;
+            }
+
+            const grouped = {};
+            data.forEach(a => {
+                const key = `${a.date_from}|${a.date_to}`;
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(a);
+            });
+
+            const html = Object.entries(grouped).map(([key, items]) => {
+                const [dateFrom, dateTo] = key.split('|');
+                const periode = dateFrom === dateTo ? dateFrom : `${dateFrom} s/d ${dateTo}`;
+
+                return `
+                    <div style="margin-bottom: 24px; border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                        <div style="background: linear-gradient(135deg, #667eea15, #764ba215); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0;">
+                            <div style="font-weight: 700; color: #334155;">📅 ${periode}</div>
+                            <div style="font-size: 12px; color: #94a3b8;">${items.length} assignment</div>
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead style="background:#f8fafc;">
+                                <tr>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">CRM</th>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">CS</th>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">Produk</th>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(a => `
+                                    <tr style="border-top:1px solid #f1f5f9;">
+                                        <td style="padding:10px 16px;font-weight:600;">${a.crm_name}</td>
+                                        <td style="padding:10px 16px;">${a.cs_name}</td>
+                                        <td style="padding:10px 16px;"><span style="background:#e0e7ff;color:#3730a3;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${a.produk || '-'}</span></td>
+                                        <td style="padding:10px 16px;">
+                                            <button onclick="deleteAssignmentById(${a.id})" class="btn btn-danger btn-small">Hapus</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }).join('');
+
+            el.innerHTML = html;
+        }
+
+        async function deleteAssignmentById(id) {
+            if (!confirm('Hapus assignment ini?')) return;
+            const { error } = await sbApp.from('crm_assignments').delete().eq('id', id);
+            if (error) { alert('Gagal hapus: ' + error.message); return; }
+            await loadAssignments();
+            loadRiwayat();
+        }
+
+        // ===== LOAD CS =====
+        async function loadCSByDateRange() {
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
+
+            if (!dateFrom || !dateTo) {
+                alert('Pilih tanggal dari dan sampai!');
+                return;
+            }
+
+            try {
+                const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
+                const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+
+                console.log('🔍 Loading CS with products');
+
+                const { data, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs, jumlah')
+                    .ilike('sumber', 'Validasi')
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .range(0, 99999);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const csWithProducts = {};
+                    data.forEach(row => {
+                        if (!row.cs) return;
+                        const produk = extractProduk(row.jumlah);
+                        if (!produk) return;
+
+                        if (!csWithProducts[row.cs]) {
+                            csWithProducts[row.cs] = new Set();
+                        }
+                        csWithProducts[row.cs].add(produk);
+                    });
+
+                    allCS = Object.keys(csWithProducts).sort().map(cs => ({
+                        name: cs,
+                        products: Array.from(csWithProducts[cs]).sort()
+                    }));
+
+                    console.log(`✅ Loaded ${allCS.length} CS with products:`, allCS);
+
+                    updateAdminCSTotal();
+                    await updateAssignmentStats();
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
+
+                    if (currentCRM) {
+                        renderAdminCSGrid();
+                        document.getElementById('adminCsSelection').classList.remove('hidden');
+                    }
+                } else {
+                    alert('❌ Tidak ada data di periode tersebut!');
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function loadAllCSNow() {
+            if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
+
+            try {
+                const { data, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs, jumlah')
+                    .range(0, 99999);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const csWithProducts = {};
+                    data.forEach(row => {
+                        if (!row.cs) return;
+                        const produk = extractProduk(row.jumlah);
+                        if (!produk) return;
+                        if (!csWithProducts[row.cs]) csWithProducts[row.cs] = new Set();
+                        csWithProducts[row.cs].add(produk);
+                    });
+
+                    allCS = Object.keys(csWithProducts).sort().map(cs => ({
+                        name: cs,
+                        products: Array.from(csWithProducts[cs]).sort()
+                    }));
+
+                    updateAdminCSTotal();
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
+
+                    if (currentCRM) {
+                        renderAdminCSGrid();
+                        document.getElementById('adminCsSelection').classList.remove('hidden');
+                    }
+                } else {
+                    alert('❌ Tidak ada data!');
+                }
+            } catch (error) {
+                console.error('Error loading CS:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function updateAdminCSTotal() {
+            const totalEl = document.getElementById('adminCSTotal');
+            if (totalEl) {
+                totalEl.textContent = `(Total: ${allCS.length} CS)`;
+            }
+        }
+
+        function renderAdminCRMSelect() {
+            const crmUsers = users.filter(u => u.role === 'crm');
+            const select = document.getElementById('adminCrmSelect');
+            select.innerHTML = '<option value="">-- Pilih CRM --</option>' +
+                crmUsers.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+        }
+
+        async function onAdminCRMChange() {
+            currentCRM = document.getElementById('adminCrmSelect').value;
+            if (currentCRM) {
+                selectedCS = assignments[currentCRM] || [];
+                await renderAdminCSGrid();
+                document.getElementById('adminCsSelection').classList.remove('hidden');
+            }
+        }
+
+        async function renderAdminCSGrid() {
+            const grid = document.getElementById('adminCsGrid');
+
+            if (!allCS.length) {
+                grid.innerHTML = '<p style="color: #94a3b8;">Tidak ada CS</p>';
+                return;
+            }
+
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
+            const alreadyAssigned = new Set();
+
+            if (currentCRM && dateFrom && dateTo) {
+                const { data } = await sbApp.from('crm_assignments')
+                    .select('*')
+                    .eq('crm_name', currentCRM)
+                    .eq('date_from', dateFrom)
+                    .eq('date_to', dateTo);
+
+                (data || []).forEach(a => {
+                    alreadyAssigned.add(`${a.cs_name}|${a.produk}`);
+                });
+            }
+
+            const productGroups = {};
+            allCS.forEach(csData => {
+                csData.products.forEach(product => {
+                    const key = `${csData.name}|${product}`;
+                    if (alreadyAssigned.has(key)) return;
+
+                    if (!productGroups[product]) productGroups[product] = [];
+                    productGroups[product].push(csData.name);
+                });
+            });
+
+            grid.innerHTML = Object.keys(productGroups).sort().map(product => {
+                const csList = productGroups[product].sort();
+
+                if (!csList.length) return '';
+
+                return `
+                    <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 16px; border: 2px solid #667eea;">
+                        <div style="font-weight: 800; margin-bottom: 16px; color: #667eea; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                            📦 ${product}
+                            <span style="font-size: 12px; font-weight: 600; color: #64748b;">(${csList.length} CS)</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
+                            ${csList.map(csName => {
+                                const key = csName + '|' + product;
+                                const isSelected = selectedCS.includes(key);
+                                return `
+                                    <label class="cs-checkbox ${isSelected ? 'selected' : ''}" style="font-size: 13px;">
+                                        <input type="checkbox" ${isSelected ? 'checked' : ''} data-cs="${escapeHtml(csName)}" data-product="${escapeHtml(product)}" onchange="toggleCS(this.dataset.cs, this.dataset.product)">
+                                        <span>CS ${escapeHtml(csName)}</span>
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).filter(Boolean).join('');
+
+            if (!grid.innerHTML.trim()) {
+                grid.innerHTML = '<p style="color: #10b981; font-weight: 600;">✅ Semua CS+Produk sudah ter-assign!</p>';
+            }
+
+            document.getElementById('adminCount').textContent = selectedCS.length;
+            await updateAssignmentStats();
+        }
+
+        function showEmptyStats() {
+            const statsDiv = document.getElementById('assignmentStats');
+            if (!statsDiv) return;
+
+            statsDiv.innerHTML = `
+                <div style="margin-bottom: 24px;">
+                    <div style="font-weight: 700; font-size: 18px; margin-bottom: 16px; color: #1e293b;">
+                        📊 Statistik Assignment
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                        <div class="card" style="background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">📦 Total Orderan</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">-</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Pilih tanggal & klik Load CS</div>
+                        </div>
+                        <div class="card" style="background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">✅ Sudah Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">-</div>
+                            <div style="font-size: 14px; font-weight: 600;">-</div>
+                        </div>
+                        <div class="card" style="background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">⚠️ Belum Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">-</div>
+                            <div style="font-size: 14px; font-weight: 600;">Belum ada data</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function updateAssignmentStats() {
+            const statsDiv = document.getElementById('assignmentStats');
+            if (!statsDiv) return;
+
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
+
+            if (!dateFrom || !dateTo) {
+                statsDiv.innerHTML = '';
+                return;
+            }
+
+            const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
+            const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+
+            const { data: allOrdersData } = await sbData
+                .from('all_orderan')
+                .select('cs, jumlah')
+                .ilike('sumber', 'Validasi')
+                .gte('created_at', dateFromUTC)
+                .lte('created_at', dateToUTC)
+                .range(0, 99999);
+
+            const { data: assignmentsData } = await sbApp.from('crm_assignments')
+                .select('*')
+                .eq('date_from', dateFrom)
+                .eq('date_to', dateTo);
+
+            const assignedSet = new Set();
+            (assignmentsData || []).forEach(a => {
+                assignedSet.add(`${a.cs_name}|${a.produk}`);
+            });
+
+            let assignedOrders = 0;
+            let unassignedOrders = 0;
+            const unassignedByProduct = {};
+
+            (allOrdersData || []).forEach(order => {
+                const produk = extractProduk(order.jumlah);
+                if (!produk || !order.cs) return;
+
+                const key = `${order.cs}|${produk}`;
+                if (assignedSet.has(key)) {
+                    assignedOrders++;
+                } else {
+                    unassignedOrders++;
+                    if (!unassignedByProduct[produk]) {
+                        unassignedByProduct[produk] = new Set();
+                    }
+                    unassignedByProduct[produk].add(order.cs);
+                }
+            });
+
+            const totalOrders = assignedOrders + unassignedOrders;
+            const percentage = totalOrders > 0 ? ((assignedOrders / totalOrders) * 100).toFixed(1) : 0;
+
+            const unassignedHTML = Object.keys(unassignedByProduct).length > 0 ? `
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #fee2e2;">
+                    <div style="font-weight: 700; font-size: 13px; color: #991b1b; margin-bottom: 8px;">⚠️ Detail Belum Ter-Assign:</div>
+                    ${Object.keys(unassignedByProduct).sort().map(prod => {
+                        const csList = Array.from(unassignedByProduct[prod]).sort();
+                        return `
+                            <div style="font-size: 12px; color: #7f1d1d; margin-bottom: 4px; background: #fef2f2; padding: 6px 10px; border-radius: 6px;">
+                                • <strong>${prod}</strong>: ${csList.length} CS (${csList.join(', ')})
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            ` : '<div style="margin-top: 12px; color: #10b981; font-size: 13px; font-weight: 600;">✅ Semua orderan sudah ter-assign!</div>';
+
+            statsDiv.innerHTML = `
+                <div style="margin-bottom: 24px;">
+                    <div style="font-weight: 700; font-size: 18px; margin-bottom: 16px; color: #1e293b;">
+                        📊 Statistik Assignment - ${dateFrom} ${dateFrom !== dateTo ? 's/d ' + dateTo : ''}
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                        <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">📦 Total Orderan</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">${totalOrders}</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Periode: ${dateFrom} - ${dateTo}</div>
+                        </div>
+                        <div class="card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">✅ Sudah Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">${assignedOrders}</div>
+                            <div style="font-size: 14px; font-weight: 600;">${percentage}% dari total</div>
+                        </div>
+                        <div class="card" style="background: ${unassignedOrders > 0 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'}; color: white; border: none;">
+                            <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">⚠️ Belum Ter-Assign</div>
+                            <div style="font-size: 42px; font-weight: 800; margin-bottom: 4px;">${unassignedOrders}</div>
+                            <div style="font-size: 14px; font-weight: 600;">${unassignedOrders > 0 ? 'Perlu ditangani!' : 'Semua selesai!'}</div>
+                        </div>
+                    </div>
+
+                    ${unassignedOrders > 0 ? `
+                        <div class="card" style="background: #fef2f2; border-left: 4px solid #ef4444;">
+                            ${unassignedHTML}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        async function toggleCS(csName, product) {
+            const key = csName + '|' + product;
+            selectedCS = selectedCS.includes(key) ? selectedCS.filter(c => c !== key) : [...selectedCS, key];
+            await renderAdminCSGrid();
+        }
+
+        async function saveAssignment() {
+            if (!currentCRM || !selectedCS.length) return alert('Pilih CRM & CS + Produk!');
+
+            const dateFrom = document.getElementById('adminDateFrom').value;
+            const dateTo = document.getElementById('adminDateTo').value;
+
+            if (!dateFrom || !dateTo) return alert('Pilih tanggal terlebih dahulu!');
+
+            const assignmentList = selectedCS.map(key => {
+                const parts = key.split('|');
+                return { csName: parts[0], produk: parts[1] };
+            });
+
+            for (const item of assignmentList) {
+                await sbApp.from('crm_assignments')
+                    .delete()
+                    .eq('crm_name', currentCRM)
+                    .eq('cs_name', item.csName)
+                    .eq('produk', item.produk)
+                    .eq('date_from', dateFrom)
+                    .eq('date_to', dateTo);
+            }
+
+            const assignmentData = assignmentList.map(item => ({
+                crm_name: currentCRM,
+                cs_name: item.csName,
+                produk: item.produk,
+                date_from: dateFrom,
+                date_to: dateTo
+            }));
+
+            await sbApp.from('crm_assignments').insert(assignmentData);
+
+            await loadAssignments();
+            await updateAssignmentStats();
+
+            selectedCS = [];
+            await renderAdminCSGrid();
+
+            alert(`✅ Tersimpan!\n${assignmentList.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
+        }
+
+        function renderAdminAssignmentList() {
+            const list = document.getElementById('adminAssignmentList');
+            if (!list) return;
+            if (!Object.keys(assignmentDates).length) {
+                list.innerHTML = '<p style="color: #94a3b8;">Belum ada</p>';
+                return;
+            }
+
+            list.innerHTML = Object.entries(assignmentDates).map(([crmName, assignmentList]) => {
+                const validAssignments = assignmentList.filter(a => a.produk);
+                if (!validAssignments.length) return '';
+
+                return `
+                    <div style="padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px;">
+                        <div style="font-weight: 700; margin-bottom: 12px;">${crmName}</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${validAssignments.map(a => `
+                                <span style="padding: 6px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">
+                                    <strong>${a.cs}</strong> <span style="color: #667eea;">(${a.produk})</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).filter(Boolean).join('');
+
+            if (!list.innerHTML.trim()) {
+                list.innerHTML = '<p style="color: #94a3b8;">Belum ada assignment dengan produk</p>';
+            }
+        }
+
+        // =====================
+        // WINDOW ONLOAD
+        // =====================
+        window.onload = async function() {
+            await initSupabase();
+
+            const stored = sessionStorage.getItem('user');
+            if (!stored) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentUser = JSON.parse(stored);
+
+            if (currentUser.role !== 'admin') {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('adminUsername').textContent = currentUser.username;
+
+            await loadUsers();
+            await loadAssignments();
+            renderAdminCRMSelect();
+
+            adminShowSection('dashboard');
+
+            drpSetPreset('7days');
+            drpApplyToInputs();
+            syncDateLabel2();
+
+            showEmptyStats();
+        };
+    </script>
+</body>
+</html>
