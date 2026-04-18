@@ -311,10 +311,7 @@ function drpApply() {
     drpApplyToInputs();
     syncDateLabel2();
     closeDatePicker();
-
-    if (typeof updateAssignmentStats === 'function') {
-        updateAssignmentStats();
-    }
+    document.dispatchEvent(new CustomEvent('dateRangeApplied'));
 }
 
 function drpRenderCal(year, month) {
