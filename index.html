@@ -210,11 +210,11 @@
             <div class="login-title">CRM System</div>
             <div class="form-group">
                 <label class="form-label">Username</label>
-                <input type="text" id="loginUsername" class="form-input">
+                <input type="text" id="loginUsername" class="form-input" onkeydown="if(event.key==='Enter') login()">
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" id="loginPassword" class="form-input">
+                <input type="password" id="loginPassword" class="form-input" onkeydown="if(event.key==='Enter') login()">
             </div>
             <button onclick="login()" class="btn btn-primary" style="width: 100%;">LOGIN</button>
         </div>
