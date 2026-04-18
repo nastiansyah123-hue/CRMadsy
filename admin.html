@@ -249,13 +249,27 @@
                 <div style="border-radius: 12px; border: 2px solid #ef4444; overflow: hidden;">
                     <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 14px 20px; display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 20px;">⚠️</span>
-                        <div style="color: white;">
+                        <div style="color: white; flex: 1;">
                             <div style="font-weight: 700; font-size: 14px;">${totalUnassigned} CS belum ter-assign dalam 30 hari terakhir</div>
                             <div style="font-size: 11px; opacity: 0.9; margin-top: 2px;">Segera tangani agar orderan bisa diproses CRM</div>
                         </div>
+                        <button onclick="toggleAlert()" id="alertToggleBtn" class="btn btn-small" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4);">▲ Sembunyikan</button>
                     </div>
-                    <div style="background: #fef2f2;">${alertRows}</div>
+                    <div id="alertBody" style="background: #fef2f2;">${alertRows}</div>
                 </div>`;
+        }
+
+        function toggleAlert() {
+            const body = document.getElementById('alertBody');
+            const btn  = document.getElementById('alertToggleBtn');
+            if (!body || !btn) return;
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                btn.textContent = '▲ Sembunyikan';
+            } else {
+                body.style.display = 'none';
+                btn.textContent = '▼ Tampilkan';
+            }
         }
 
         function goAssignDate(dateStr) {
