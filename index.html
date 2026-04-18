@@ -202,6 +202,94 @@
             font-family: inherit;
         }
 
+        /* Sidebar Layout */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 240px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0;
+            height: 100vh;
+            z-index: 100;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.06);
+        }
+        .sidebar-brand {
+            padding: 24px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .sidebar-brand-title {
+            font-size: 18px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .sidebar-brand-sub {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .sidebar-nav {
+            flex: 1;
+            padding: 12px 0;
+            overflow-y: auto;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #64748b;
+            transition: all 0.15s;
+            border-right: 3px solid transparent;
+        }
+        .nav-item:hover { background: #f8fafc; color: #334155; }
+        .nav-item.nav-active {
+            background: #f0f4ff;
+            color: #667eea;
+            font-weight: 700;
+            border-right-color: #667eea;
+        }
+        .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sidebar-username { font-size: 13px; font-weight: 700; color: #334155; }
+        .main-content {
+            margin-left: 240px;
+            flex: 1;
+            background: #f8fafc;
+            min-height: 100vh;
+            padding: 28px;
+        }
+        .section-header {
+            margin-bottom: 24px;
+        }
+        .section-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        .section-sub {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .admin-section { display: none; }
+        .admin-section.sec-active { display: block; }
+
         /* Date Range Picker */
         .drp-overlay {
             position: fixed;
@@ -293,64 +381,112 @@
 
     <!-- Admin Data View -->
     <div id="adminView" class="hidden">
-        <div class="container">
-            <div class="header">
-                <div>
-                    <h1 class="header-title">Admin Data Panel</h1>
-                    <p style="color: #64748b; font-size: 14px;">Assignment CS ke CRM</p>
-                </div>
-                <div class="user-info">
-                    <span class="role-badge role-admin">ADMIN DATA</span>
-                    <span id="adminUsername" style="font-weight: 600;"></span>
-                    <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
-                </div>
-            </div>
+        <div class="app-layout">
 
-            <!-- Statistics Card (Permanen) -->
-            <div id="assignmentStats"></div>
-
-            <div class="card">
-                <h2 class="card-title">📋 Assignment CS ke CRM</h2>
-                
-                <!-- Date + Sumber Filter -->
-                <div style="margin-bottom: 24px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
-                    <label class="form-label">📅 Filter CS: Tanggal + Sumber Validasi</label>
-                    <!-- Hidden inputs tetap ada untuk kompatibilitas JS -->
-                    <input type="hidden" id="adminDateFrom">
-                    <input type="hidden" id="adminDateTo">
-                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                        <button id="datePickerTrigger" onclick="toggleDatePicker(this)" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 14px;">
-                            📅 <span id="datePickerLabel">Pilih Tanggal</span> ▼
-                        </button>
-                        <button onclick="loadCSByDateRange()" class="btn btn-primary">
-                            🔍 Load CS
-                        </button>
-                        <button onclick="loadAllCSNow()" class="btn btn-secondary">
-                            📋 Semua CS
-                        </button>
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-title">CRM System</div>
+                    <div class="sidebar-brand-sub">Admin Data Panel</div>
+                </div>
+                <nav class="sidebar-nav">
+                    <div id="adminNav-statistik" class="nav-item nav-active" onclick="adminShowSection('statistik')">
+                        <span class="nav-icon">📊</span> Statistik
                     </div>
-                    <div style="margin-top: 12px; font-size: 12px; color: #64748b;">
-                        💡 Load CS dari orderan dengan <strong>Sumber = Validasi</strong> di periode tanggal yang dipilih
+                    <div id="adminNav-assignment" class="nav-item" onclick="adminShowSection('assignment')">
+                        <span class="nav-icon">📋</span> Assignment CS
+                    </div>
+                    <div id="adminNav-riwayat" class="nav-item" onclick="adminShowSection('riwayat')">
+                        <span class="nav-icon">📜</span> Riwayat
+                    </div>
+                </nav>
+                <div class="sidebar-footer">
+                    <div class="sidebar-username" id="adminUsername"></div>
+                    <span class="role-badge role-admin" style="width: fit-content;">ADMIN DATA</span>
+                    <button onclick="logout()" class="btn btn-secondary btn-small" style="width: 100%; margin-top: 4px;">Logout</button>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="main-content">
+
+                <!-- ===== STATISTIK ===== -->
+                <div id="adminSec-statistik" class="admin-section sec-active">
+                    <div class="section-header">
+                        <div class="section-title">📊 Statistik Assignment</div>
+                        <div class="section-sub">Overview assignment CS ke CRM berdasarkan periode</div>
+                    </div>
+
+                    <!-- Date picker untuk statistik -->
+                    <div class="card" style="margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <input type="hidden" id="adminDateFrom">
+                            <input type="hidden" id="adminDateTo">
+                            <button id="datePickerTrigger" onclick="toggleDatePicker(this)" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 14px;">
+                                📅 <span id="datePickerLabel">Pilih Tanggal</span> ▼
+                            </button>
+                            <button onclick="updateAssignmentStats()" class="btn btn-primary">🔍 Lihat Statistik</button>
+                        </div>
+                    </div>
+
+                    <div id="assignmentStats"></div>
+                </div>
+
+                <!-- ===== ASSIGNMENT CS ===== -->
+                <div id="adminSec-assignment" class="admin-section">
+                    <div class="section-header">
+                        <div class="section-title">📋 Assignment CS ke CRM</div>
+                        <div class="section-sub">Assign Customer Service ke CRM berdasarkan produk & periode</div>
+                    </div>
+
+                    <div class="card">
+                        <div style="margin-bottom: 20px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                            <label class="form-label">📅 Filter CS: Tanggal + Sumber Validasi</label>
+                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px;">
+                                <button onclick="toggleDatePicker(document.getElementById('datePickerTrigger'))" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 14px;">
+                                    📅 <span id="datePickerLabel2"></span> ▼
+                                </button>
+                                <button onclick="loadCSByDateRange()" class="btn btn-primary">🔍 Load CS</button>
+                                <button onclick="loadAllCSNow()" class="btn btn-secondary">📋 Semua CS</button>
+                            </div>
+                            <div style="margin-top: 10px; font-size: 12px; color: #64748b;">
+                                💡 Load CS dari orderan dengan <strong>Sumber = Validasi</strong> di periode yang dipilih
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Pilih CRM User</label>
+                            <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
+                                <option value="">-- Pilih CRM --</option>
+                            </select>
+                        </div>
+                        <div id="adminCsSelection" class="hidden">
+                            <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih) <span id="adminCSTotal" style="color: #64748b; font-weight: 400;"></span></label>
+                            <div id="adminCsGrid" class="cs-grid"></div>
+                            <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Pilih CRM User</label>
-                    <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
-                        <option value="">-- Pilih CRM --</option>
-                    </select>
+                <!-- ===== RIWAYAT ===== -->
+                <div id="adminSec-riwayat" class="admin-section">
+                    <div class="section-header">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div class="section-title">📜 Riwayat Assignment</div>
+                                <div class="section-sub">Semua assignment yang sudah tersimpan</div>
+                            </div>
+                            <button onclick="loadRiwayat()" class="btn btn-secondary btn-small">🔄 Refresh</button>
+                        </div>
+                    </div>
+                    <div class="card" style="overflow-x: auto;">
+                        <div id="riwayatContent">
+                            <p style="color: #94a3b8; text-align: center; padding: 32px;">Memuat riwayat...</p>
+                        </div>
+                    </div>
                 </div>
-                <div id="adminCsSelection" class="hidden">
-                    <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih) <span id="adminCSTotal" style="color: #64748b; font-weight: 400;"></span></label>
-                    <div id="adminCsGrid" class="cs-grid"></div>
-                    <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
-                </div>
-            </div>
 
-            <div class="card">
-                <h2 class="card-title">Assignment Saat Ini</h2>
-                <div id="adminAssignmentList"></div>
-            </div>
+            </main>
         </div>
     </div>
 
@@ -682,12 +818,15 @@
                 await loadUsers();
                 await loadAssignments();
                 renderAdminCRMSelect();
-                renderAdminAssignmentList();
-                
-                // Set default date (7 hari terakhir) via date picker
+
+                // Default section: statistik
+                adminShowSection('statistik');
+
+                // Set default date picker 7 hari terakhir
                 drpSetPreset('7days');
                 drpApplyToInputs();
-                
+                syncDateLabel2();
+
                 // Show empty stats placeholder
                 showEmptyStats();
             } else if (role === 'spv') {
@@ -1656,6 +1795,101 @@
         }
 
         // =====================
+        // ADMIN SIDEBAR NAV
+        // =====================
+        function adminShowSection(section) {
+            ['statistik', 'assignment', 'riwayat'].forEach(s => {
+                document.getElementById('adminSec-' + s).classList.remove('sec-active');
+                document.getElementById('adminNav-' + s).classList.remove('nav-active');
+            });
+            document.getElementById('adminSec-' + section).classList.add('sec-active');
+            document.getElementById('adminNav-' + section).classList.add('nav-active');
+
+            if (section === 'riwayat') loadRiwayat();
+        }
+
+        // Sync label tanggal di halaman Assignment CS
+        function syncDateLabel2() {
+            const lbl = document.getElementById('datePickerLabel2');
+            const main = document.getElementById('datePickerLabel');
+            if (lbl && main) lbl.textContent = main.textContent;
+        }
+
+        // ===== RIWAYAT =====
+        async function loadRiwayat() {
+            const el = document.getElementById('riwayatContent');
+            el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Memuat...</p>';
+
+            const { data, error } = await sbApp.from('crm_assignments').select('*').order('date_from', { ascending: false });
+
+            if (error || !data || !data.length) {
+                el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Belum ada riwayat assignment.</p>';
+                return;
+            }
+
+            // Group by periode (date_from + date_to)
+            const grouped = {};
+            data.forEach(a => {
+                const key = `${a.date_from}|${a.date_to}`;
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(a);
+            });
+
+            const html = Object.entries(grouped).map(([key, items]) => {
+                const [dateFrom, dateTo] = key.split('|');
+                const periode = dateFrom === dateTo ? dateFrom : `${dateFrom} s/d ${dateTo}`;
+
+                // Group by CRM within this period
+                const byCRM = {};
+                items.forEach(i => {
+                    if (!byCRM[i.crm_name]) byCRM[i.crm_name] = [];
+                    byCRM[i.crm_name].push(i);
+                });
+
+                return `
+                    <div style="margin-bottom: 24px; border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                        <div style="background: linear-gradient(135deg, #667eea15, #764ba215); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0;">
+                            <div style="font-weight: 700; color: #334155;">📅 ${periode}</div>
+                            <div style="font-size: 12px; color: #94a3b8;">${items.length} assignment</div>
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead style="background:#f8fafc;">
+                                <tr>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">CRM</th>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">CS</th>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">Produk</th>
+                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(a => `
+                                    <tr style="border-top:1px solid #f1f5f9;">
+                                        <td style="padding:10px 16px;font-weight:600;">${a.crm_name}</td>
+                                        <td style="padding:10px 16px;">${a.cs_name}</td>
+                                        <td style="padding:10px 16px;"><span style="background:#e0e7ff;color:#3730a3;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${a.produk || '-'}</span></td>
+                                        <td style="padding:10px 16px;">
+                                            <button onclick="deleteAssignmentById(${a.id})" class="btn btn-danger btn-small">Hapus</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }).join('');
+
+            el.innerHTML = html;
+        }
+
+        async function deleteAssignmentById(id) {
+            if (!confirm('Hapus assignment ini?')) return;
+            const { error } = await sbApp.from('crm_assignments').delete().eq('id', id);
+            if (error) { alert('Gagal hapus: ' + error.message); return; }
+            await loadAssignments();
+            loadRiwayat();
+        }
+
+        // =====================
         // DATE RANGE PICKER
         // =====================
         const DRP_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -1778,11 +2012,15 @@
             container.onclick = e => e.stopPropagation();
             document.body.appendChild(container);
             drpRender();
+
+            // Tutup otomatis kalau halaman di-scroll
+            window.addEventListener('scroll', closeDatePicker, { capture: true, once: true });
         }
 
         function closeDatePicker() {
             document.getElementById('drpOverlay')?.remove();
             document.getElementById('drpContainer')?.remove();
+            window.removeEventListener('scroll', closeDatePicker, true);
         }
 
         function drpClickDay(dateStr) {
@@ -1821,6 +2059,7 @@
         function drpApply() {
             if (!drp.startDate || !drp.endDate) { alert('Pilih tanggal mulai dan selesai!'); return; }
             drpApplyToInputs();
+            syncDateLabel2();
             closeDatePicker();
         }
 
