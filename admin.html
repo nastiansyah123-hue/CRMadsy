@@ -204,6 +204,9 @@
                             <button onclick="clearOrderanFilter()" class="btn btn-secondary">✖ Reset</button>
                         </div>
                     </div>
+                    <div style="margin-top: 12px;">
+                        <input type="text" id="orderanSearch" class="form-input" placeholder="🔎 Cari CS, resi, jumlah, pembayaran..." oninput="onOrderanSearch()" style="max-width: 400px;">
+                    </div>
                 </div>
 
                 <!-- Bulk action bar -->
@@ -956,6 +959,7 @@
         // ALL ORDERAN
         // =====================
         let orderanData = [];
+        let orderanFiltered = [];
         let orderanSelected = new Set();
         let orderanPage = 1;
         const orderanPageSize = 100;
@@ -974,7 +978,7 @@
             const sumberFilter = document.getElementById('orderanSumberFilter').value;
 
             let query = sbData.from('all_orderan')
-                .select('id, cs, team, jumlah, sumber, resi, status, pembayaran, created_at')
+                .select('id, cs, team, jumlah, sumber, resi, pembayaran, created_at')
                 .order('created_at', { ascending: false })
                 .limit(10000);
 
@@ -990,7 +994,9 @@
             if (!data || !data.length) { wrap.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Tidak ada data.</p>'; return; }
 
             orderanData = data;
+            orderanFiltered = data;
             orderanPage = 1;
+            document.getElementById('orderanSearch').value = '';
 
             // Populate filter dropdowns dari data yang ada
             populateOrderanFilters(data);
@@ -1013,13 +1019,28 @@
             sumberSel.innerHTML = '<option value="">Semua Sumber</option>' + sumbers.map(s => `<option value="${s}" ${s===cur.sumber?'selected':''}>${s}</option>`).join('');
         }
 
+        function onOrderanSearch() {
+            const q = document.getElementById('orderanSearch').value.toLowerCase().trim();
+            orderanFiltered = q
+                ? orderanData.filter(r =>
+                    (r.cs || '').toLowerCase().includes(q) ||
+                    (r.resi || '').toLowerCase().includes(q) ||
+                    (r.jumlah || '').toLowerCase().includes(q) ||
+                    (r.pembayaran || '').toLowerCase().includes(q) ||
+                    (r.sumber || '').toLowerCase().includes(q) ||
+                    (r.team || '').toLowerCase().includes(q))
+                : orderanData;
+            orderanPage = 1;
+            renderOrderanTable();
+        }
+
         function renderOrderanTable() {
             const wrap = document.getElementById('orderanTableWrap');
             const pgEl = document.getElementById('orderanPagination');
-            const total = orderanData.length;
+            const total = orderanFiltered.length;
             const totalPages = Math.ceil(total / orderanPageSize);
             const start = (orderanPage - 1) * orderanPageSize;
-            const pageData = orderanData.slice(start, start + orderanPageSize);
+            const pageData = orderanFiltered.slice(start, start + orderanPageSize);
 
             const rows = pageData.map(r => {
                 const tgl = r.created_at
@@ -1037,7 +1058,7 @@
                         <td style="padding:8px 12px;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.jumlah || '')}">${escapeHtml(r.jumlah || '-')}</td>
                         <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.sumber || '-')}</td>
                         <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.resi || '-')}</td>
-                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.status || '-')}</td>
+                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.pembayaran || '-')}</td>
                         <td style="padding:8px 12px;text-align:center;">
                             <button onclick="deleteOneOrderan(${r.id})" class="btn btn-danger btn-small" style="padding:3px 8px;font-size:11px;">Hapus</button>
                         </td>
@@ -1045,10 +1066,12 @@
             }).join('');
 
             const selectAllChecked = pageData.length > 0 && pageData.every(r => orderanSelected.has(r.id));
+            const searchInfo = orderanFiltered.length !== orderanData.length
+                ? ` (dari ${orderanData.length} total)` : '';
 
             wrap.innerHTML = `
                 <div style="font-size:13px;color:#64748b;margin-bottom:10px;">
-                    Menampilkan <strong>${start+1}–${Math.min(start+orderanPageSize, total)}</strong> dari <strong>${total}</strong> data
+                    Menampilkan <strong>${total > 0 ? start+1 : 0}–${Math.min(start+orderanPageSize, total)}</strong> dari <strong>${total}</strong> data${searchInfo}
                 </div>
                 <table style="width:100%;border-collapse:collapse;font-size:13px;">
                     <thead style="background:#f8fafc;position:sticky;top:0;">
@@ -1062,7 +1085,7 @@
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Jumlah/Produk</th>
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Sumber</th>
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Resi</th>
-                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Status</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Pembayaran</th>
                             <th style="padding:10px 12px;text-align:center;font-weight:700;color:#475569;">Aksi</th>
                         </tr>
                     </thead>
@@ -1082,7 +1105,7 @@
         }
 
         function orderanGoPage(pg) {
-            const totalPages = Math.ceil(orderanData.length / orderanPageSize);
+            const totalPages = Math.ceil(orderanFiltered.length / orderanPageSize);
             if (pg < 1 || pg > totalPages) return;
             orderanPage = pg;
             renderOrderanTable();
@@ -1097,7 +1120,7 @@
 
         function toggleSelectPageOrderan(checked) {
             const start = (orderanPage - 1) * orderanPageSize;
-            const pageData = orderanData.slice(start, start + orderanPageSize);
+            const pageData = orderanFiltered.slice(start, start + orderanPageSize);
             pageData.forEach(r => { if (checked) orderanSelected.add(r.id); else orderanSelected.delete(r.id); });
             updateOrderanBulkBar();
             renderOrderanTable();
@@ -1125,6 +1148,7 @@
             const { error } = await sbData.from('all_orderan').delete().eq('id', id);
             if (error) { alert('Gagal hapus: ' + error.message); return; }
             orderanData = orderanData.filter(r => r.id !== id);
+            orderanFiltered = orderanFiltered.filter(r => r.id !== id);
             orderanSelected.delete(id);
             updateOrderanBulkBar();
             renderOrderanTable();
@@ -1137,9 +1161,10 @@
             const { error } = await sbData.from('all_orderan').delete().in('id', ids);
             if (error) { alert('Gagal hapus: ' + error.message); return; }
             orderanData = orderanData.filter(r => !orderanSelected.has(r.id));
+            orderanFiltered = orderanFiltered.filter(r => !orderanSelected.has(r.id));
             orderanSelected.clear();
             updateOrderanBulkBar();
-            if (orderanPage > Math.ceil(orderanData.length / orderanPageSize)) orderanPage = 1;
+            if (orderanPage > Math.ceil(orderanFiltered.length / orderanPageSize)) orderanPage = 1;
             renderOrderanTable();
             alert(`✅ ${ids.length} data berhasil dihapus.`);
         }
