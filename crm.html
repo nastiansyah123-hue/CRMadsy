@@ -1002,8 +1002,16 @@
         tb.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:48px;color:#9CA3AF;">Memuat data...</td></tr>';
 
         const assignedCS = assignments[currentUser.username] || [];
+
+        // DEBUG: tampilkan info ke console
+        console.log('[Pelanggan] username:', currentUser.username);
+        console.log('[Pelanggan] assignedCS:', assignedCS);
+
         if (!assignedCS.length) {
-            tb.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:48px;color:#9CA3AF;">Belum ada assignment CS</td></tr>';
+            tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:48px;">
+                <div style="color:#EF4444;font-weight:700;margin-bottom:8px;">Belum ada assignment CS</div>
+                <div style="color:#9CA3AF;font-size:12px;">Username: <code>${currentUser.username}</code> belum di-assign oleh admin</div>
+            </td></tr>`;
             return;
         }
 
@@ -1013,9 +1021,43 @@
                 .select('*')
                 .in('nama_cs', assignedCS)
                 .range(pg * 1000, (pg + 1) * 1000 - 1);
-            if (error) { tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:48px;color:#EF4444;">${error.message}</td></tr>`; return; }
+            if (error) {
+                console.error('[Pelanggan] error:', error);
+                tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:48px;color:#EF4444;">${error.message}</td></tr>`;
+                return;
+            }
             if (data && data.length > 0) { all = all.concat(data); more = data.length === 1000; pg++; }
             else more = false;
+        }
+
+        console.log('[Pelanggan] total records ditemukan di crm_customers:', all.length);
+
+        // Kalau crm_customers kosong, fallback ke data orders yang sudah ada di memori
+        if (!all.length && orders.length) {
+            console.log('[Pelanggan] fallback dari orders array, total orders:', orders.length);
+            const seen = new Set();
+            orders.forEach(o => {
+                const key = (o.hp || '') + '|' + (o.cs || '');
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    all.push({
+                        id:      key,
+                        nama:    o.nama    || null,
+                        no_hp:   o.hp      || null,
+                        kab:     o.kabupaten || null,
+                        prov:    o.provinsi  || null,
+                        nama_cs: o.cs       || null,
+                        desa: null, kec: null, type: null, penyakit: null,
+                        usia: null, jenis_kelamin: null, pekerjaan: null,
+                        interaksi_terakhir: null, last_fu: null, tgl_lahir: null,
+                    });
+                }
+            });
+        }
+
+        if (!all.length) {
+            tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:48px;color:#9CA3AF;">Tidak ada data pelanggan</td></tr>`;
+            return;
         }
 
         crmCustomers = all;
@@ -1536,10 +1578,8 @@
         if (btn) { btn.disabled = true; label.textContent = 'Memuat...'; }
         try {
             await loadAssignments();
-            await Promise.all([
-                loadOrders(),
-                loadPelanggan()
-            ]);
+            await loadOrders();       // harus duluan karena pelanggan fallback ke orders
+            await loadPelanggan();
             renderDashboard();
         } finally {
             if (btn) { btn.disabled = false; label.textContent = 'Sync Data'; }
