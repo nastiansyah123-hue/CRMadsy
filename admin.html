@@ -363,14 +363,24 @@
             const uniqueCSNames = [...new Set(data.map(a => a.cs_name))];
             const csTeamLocal = {};
             if (uniqueCSNames.length > 0) {
-                const { data: teamData } = await sbData.from('all_orderan')
-                    .select('cs, team')
-                    .in('cs', uniqueCSNames)
-                    .not('team', 'is', null)
-                    .limit(2000);
-                (teamData || []).forEach(row => {
-                    if (row.cs && row.team && !csTeamLocal[row.cs]) csTeamLocal[row.cs] = row.team;
-                });
+                let pg = 0; const pgSize = 1000;
+                const found = new Set();
+                while (found.size < uniqueCSNames.length) {
+                    const { data: chunk } = await sbData.from('all_orderan')
+                        .select('cs, team')
+                        .in('cs', uniqueCSNames)
+                        .not('team', 'is', null)
+                        .range(pg * pgSize, (pg + 1) * pgSize - 1);
+                    if (!chunk || !chunk.length) break;
+                    chunk.forEach(row => {
+                        if (row.cs && row.team && !csTeamLocal[row.cs]) {
+                            csTeamLocal[row.cs] = row.team;
+                            found.add(row.cs);
+                        }
+                    });
+                    if (chunk.length < pgSize) break;
+                    pg++;
+                }
             }
 
             // Update team dropdown berdasarkan data yang ada
