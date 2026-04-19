@@ -86,15 +86,24 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Pilih CRM User</label>
-                        <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
-                            <option value="">-- Pilih CRM --</option>
+                        <label class="form-label">Pilih Team CS</label>
+                        <select id="adminTeamSelect" class="form-select" onchange="onAdminTeamChange()">
+                            <option value="">-- Pilih Team --</option>
                         </select>
                     </div>
-                    <div id="adminCsSelection" class="hidden">
-                        <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih) <span id="adminCSTotal" style="color: #64748b; font-weight: 400;"></span></label>
-                        <div id="adminCsGrid" class="cs-grid"></div>
-                        <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
+
+                    <div id="adminCrmWrapper" class="hidden">
+                        <div class="form-group">
+                            <label class="form-label">Pilih CRM User</label>
+                            <select id="adminCrmSelect" class="form-select" onchange="onAdminCRMChange()">
+                                <option value="">-- Pilih CRM --</option>
+                            </select>
+                        </div>
+                        <div id="adminCsSelection" class="hidden">
+                            <label class="form-label">Pilih CS (<span id="adminCount">0</span> dipilih) <span id="adminCSTotal" style="color: #64748b; font-weight: 400;"></span></label>
+                            <div id="adminCsGrid" class="cs-grid"></div>
+                            <button onclick="saveAssignment()" class="btn btn-success">💾 Simpan Assignment</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -395,21 +404,17 @@
                         csWithProducts[row.cs].add(produk);
                     });
 
-                    allCS = Object.keys(csWithProducts).sort().map(cs => ({
-                        name: cs,
-                        products: Array.from(csWithProducts[cs]).sort()
-                    }));
+                    allCS = Object.keys(csWithProducts).sort().map(cs => {
+                        const u = users.find(u => u.username === cs);
+                        return { name: cs, team: u?.team || 'Lainnya', products: Array.from(csWithProducts[cs]).sort() };
+                    });
 
                     console.log(`✅ Loaded ${allCS.length} CS with products:`, allCS);
 
                     updateAdminCSTotal();
+                    populateTeamDropdown();
                     await updateAssignmentStats();
                     alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
-
-                    if (currentCRM) {
-                        renderAdminCSGrid();
-                        document.getElementById('adminCsSelection').classList.remove('hidden');
-                    }
                 } else {
                     alert('❌ Tidak ada data di periode tersebut!');
                 }
@@ -440,18 +445,14 @@
                         csWithProducts[row.cs].add(produk);
                     });
 
-                    allCS = Object.keys(csWithProducts).sort().map(cs => ({
-                        name: cs,
-                        products: Array.from(csWithProducts[cs]).sort()
-                    }));
+                    allCS = Object.keys(csWithProducts).sort().map(cs => {
+                        const u = users.find(u => u.username === cs);
+                        return { name: cs, team: u?.team || 'Lainnya', products: Array.from(csWithProducts[cs]).sort() };
+                    });
 
                     updateAdminCSTotal();
+                    populateTeamDropdown();
                     alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
-
-                    if (currentCRM) {
-                        renderAdminCSGrid();
-                        document.getElementById('adminCsSelection').classList.remove('hidden');
-                    }
                 } else {
                     alert('❌ Tidak ada data!');
                 }
@@ -465,6 +466,32 @@
             const totalEl = document.getElementById('adminCSTotal');
             if (totalEl) {
                 totalEl.textContent = `(Total: ${allCS.length} CS)`;
+            }
+        }
+
+        function populateTeamDropdown() {
+            const teamSelect = document.getElementById('adminTeamSelect');
+            const teams = [...new Set(allCS.map(cs => cs.team))].filter(Boolean).sort();
+            teamSelect.innerHTML = '<option value="">-- Pilih Team --</option>' +
+                teams.map(t => `<option value="${t}">${t}</option>`).join('');
+            // Reset downstream setiap kali CS baru di-load
+            document.getElementById('adminCrmWrapper').classList.add('hidden');
+            document.getElementById('adminCsSelection').classList.add('hidden');
+            currentCRM = '';
+            selectedCS = [];
+        }
+
+        function onAdminTeamChange() {
+            const team = document.getElementById('adminTeamSelect').value;
+            if (team) {
+                document.getElementById('adminCrmWrapper').classList.remove('hidden');
+                document.getElementById('adminCrmSelect').value = '';
+                document.getElementById('adminCsSelection').classList.add('hidden');
+                currentCRM = '';
+                selectedCS = [];
+            } else {
+                document.getElementById('adminCrmWrapper').classList.add('hidden');
+                document.getElementById('adminCsSelection').classList.add('hidden');
             }
         }
 
@@ -508,8 +535,10 @@
                 });
             }
 
+            const selectedTeam = document.getElementById('adminTeamSelect').value;
+            const csToRender = selectedTeam ? allCS.filter(cs => cs.team === selectedTeam) : allCS;
             const productGroups = {};
-            allCS.forEach(csData => {
+            csToRender.forEach(csData => {
                 csData.products.forEach(product => {
                     const key = `${csData.name}|${product}`;
                     if (alreadyAssigned.has(key)) return;
