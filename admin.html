@@ -119,10 +119,39 @@
                         <button onclick="loadRiwayat()" class="btn btn-secondary btn-small">🔄 Refresh</button>
                     </div>
                 </div>
-                <div class="card" style="overflow-x: auto;">
-                    <div id="riwayatContent">
-                        <p style="color: #94a3b8; text-align: center; padding: 32px;">Memuat riwayat...</p>
+
+                <!-- Filter Bar -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 140px;">
+                            <label class="form-label">Team</label>
+                            <select id="riwayatTeamFilter" class="form-select">
+                                <option value="">Semua Team</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 140px;">
+                            <label class="form-label">CRM</label>
+                            <select id="riwayatCrmFilter" class="form-select">
+                                <option value="">Semua CRM</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Dari</label>
+                            <input type="date" id="riwayatDateFrom" class="form-input" style="width: 160px;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Sampai</label>
+                            <input type="date" id="riwayatDateTo" class="form-input" style="width: 160px;">
+                        </div>
+                        <div style="display: flex; gap: 8px; padding-bottom: 1px;">
+                            <button onclick="loadRiwayat()" class="btn btn-primary">🔍 Filter</button>
+                            <button onclick="clearRiwayatFilter()" class="btn btn-secondary">✖ Reset</button>
+                        </div>
                     </div>
+                </div>
+
+                <div id="riwayatContent">
+                    <p style="color: #94a3b8; text-align: center; padding: 32px;">Memuat riwayat...</p>
                 </div>
             </div>
 
@@ -304,54 +333,115 @@
             const el = document.getElementById('riwayatContent');
             el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Memuat...</p>';
 
-            const { data, error } = await sbApp.from('crm_assignments').select('*').order('date_from', { ascending: false });
+            // Populate CRM dropdown dari users
+            const crmSelect = document.getElementById('riwayatCrmFilter');
+            const currentCrmFilter = crmSelect.value;
+            const crmUsers = users.filter(u => u.role === 'crm');
+            crmSelect.innerHTML = '<option value="">Semua CRM</option>' +
+                crmUsers.map(u => `<option value="${u.username}" ${u.username === currentCrmFilter ? 'selected' : ''}>${u.username}</option>`).join('');
+
+            // Ambil nilai filter
+            const crmFilter  = document.getElementById('riwayatCrmFilter').value;
+            const dateFrom   = document.getElementById('riwayatDateFrom').value;
+            const dateTo     = document.getElementById('riwayatDateTo').value;
+            const teamFilter = document.getElementById('riwayatTeamFilter').value;
+
+            // Query dengan filter server-side (CRM & tanggal)
+            let query = sbApp.from('crm_assignments').select('*').order('date_from', { ascending: false });
+            if (crmFilter) query = query.eq('crm_name', crmFilter);
+            if (dateFrom)  query = query.gte('date_from', dateFrom);
+            if (dateTo)    query = query.lte('date_to', dateTo);
+
+            const { data, error } = await query;
 
             if (error || !data || !data.length) {
                 el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Belum ada riwayat assignment.</p>';
                 return;
             }
 
+            // Ambil info team dari all_orderan untuk cs_name yang ada di hasil
+            const uniqueCSNames = [...new Set(data.map(a => a.cs_name))];
+            const csTeamLocal = {};
+            if (uniqueCSNames.length > 0) {
+                const { data: teamData } = await sbData.from('all_orderan')
+                    .select('cs, team')
+                    .in('cs', uniqueCSNames)
+                    .not('team', 'is', null)
+                    .limit(2000);
+                (teamData || []).forEach(row => {
+                    if (row.cs && row.team && !csTeamLocal[row.cs]) csTeamLocal[row.cs] = row.team;
+                });
+            }
+
+            // Update team dropdown berdasarkan data yang ada
+            const allTeams = [...new Set(Object.values(csTeamLocal))].filter(Boolean).sort();
+            const teamSelect = document.getElementById('riwayatTeamFilter');
+            const currentTeam = teamSelect.value;
+            teamSelect.innerHTML = '<option value="">Semua Team</option>' +
+                allTeams.map(t => `<option value="${t}" ${t === currentTeam ? 'selected' : ''}>${t}</option>`).join('');
+
+            // Filter by team (client-side)
+            const filteredData = teamFilter
+                ? data.filter(a => csTeamLocal[a.cs_name] === teamFilter)
+                : data;
+
+            if (!filteredData.length) {
+                el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Tidak ada data untuk filter ini.</p>';
+                return;
+            }
+
+            // Group: periode → CRM
             const grouped = {};
-            data.forEach(a => {
-                const key = `${a.date_from}|${a.date_to}`;
-                if (!grouped[key]) grouped[key] = [];
-                grouped[key].push(a);
+            filteredData.forEach(a => {
+                const pKey = `${a.date_from}|${a.date_to}`;
+                if (!grouped[pKey]) grouped[pKey] = {};
+                if (!grouped[pKey][a.crm_name]) grouped[pKey][a.crm_name] = [];
+                grouped[pKey][a.crm_name].push(a);
             });
 
-            const html = Object.entries(grouped).map(([key, items]) => {
-                const [dateFrom, dateTo] = key.split('|');
-                const periode = dateFrom === dateTo ? dateFrom : `${dateFrom} s/d ${dateTo}`;
+            const html = Object.entries(grouped).map(([pKey, crmGroups]) => {
+                const [pFrom, pTo] = pKey.split('|');
+                const periode = pFrom === pTo ? pFrom : `${pFrom} s/d ${pTo}`;
+                const totalItems = Object.values(crmGroups).reduce((s, arr) => s + arr.length, 0);
+
+                const crmHTML = Object.entries(crmGroups)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([crmName, items]) => {
+                        const csRows = items
+                            .sort((a, b) => a.cs_name.localeCompare(b.cs_name))
+                            .map(a => {
+                                const teamBadge = csTeamLocal[a.cs_name]
+                                    ? `<span style="font-size:10px;background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:4px;margin-right:6px;font-weight:700;">${csTeamLocal[a.cs_name]}</span>`
+                                    : '';
+                                const produkBadge = `<span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">${a.produk || '-'}</span>`;
+                                return `
+                                    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-radius:6px;background:#f8fafc;margin-bottom:4px;">
+                                        <span style="font-size:13px;">${teamBadge}${escapeHtml(a.cs_name)} <span style="color:#94a3b8;margin:0 6px;">→</span> ${produkBadge}</span>
+                                        <button onclick="deleteAssignmentById(${a.id})" class="btn btn-danger btn-small" style="padding:3px 8px;font-size:11px;">Hapus</button>
+                                    </div>`;
+                            }).join('');
+
+                        return `
+                            <div style="margin-bottom:10px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f1f5f9;">
+                                    <div style="font-weight:700;font-size:13px;color:#334155;">
+                                        👤 ${escapeHtml(crmName)}
+                                        <span style="font-weight:400;color:#94a3b8;font-size:12px;">(${items.length} CS)</span>
+                                    </div>
+                                    <button onclick="deleteAssignmentGroup('${escapeHtml(crmName)}','${pFrom}','${pTo}')" class="btn btn-danger btn-small">🗑 Hapus Semua</button>
+                                </div>
+                                <div style="padding:10px 12px;">${csRows}</div>
+                            </div>`;
+                    }).join('');
 
                 return `
-                    <div style="margin-bottom: 24px; border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-                        <div style="background: linear-gradient(135deg, #667eea15, #764ba215); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0;">
-                            <div style="font-weight: 700; color: #334155;">📅 ${periode}</div>
-                            <div style="font-size: 12px; color: #94a3b8;">${items.length} assignment</div>
+                    <div style="margin-bottom:28px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
+                            <div style="font-weight:800;font-size:15px;color:#1e293b;">📅 ${periode}</div>
+                            <div style="font-size:12px;color:#94a3b8;">${totalItems} assignment · ${Object.keys(crmGroups).length} CRM</div>
                         </div>
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead style="background:#f8fafc;">
-                                <tr>
-                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">CRM</th>
-                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">CS</th>
-                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">Produk</th>
-                                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:#475569;">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${items.map(a => `
-                                    <tr style="border-top:1px solid #f1f5f9;">
-                                        <td style="padding:10px 16px;font-weight:600;">${a.crm_name}</td>
-                                        <td style="padding:10px 16px;">${a.cs_name}</td>
-                                        <td style="padding:10px 16px;"><span style="background:#e0e7ff;color:#3730a3;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${a.produk || '-'}</span></td>
-                                        <td style="padding:10px 16px;">
-                                            <button onclick="deleteAssignmentById(${a.id})" class="btn btn-danger btn-small">Hapus</button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
+                        ${crmHTML}
+                    </div>`;
             }).join('');
 
             el.innerHTML = html;
@@ -362,6 +452,27 @@
             const { error } = await sbApp.from('crm_assignments').delete().eq('id', id);
             if (error) { alert('Gagal hapus: ' + error.message); return; }
             await loadAssignments();
+            loadRiwayat();
+        }
+
+        async function deleteAssignmentGroup(crmName, dateFrom, dateTo) {
+            const periode = dateFrom === dateTo ? dateFrom : `${dateFrom} - ${dateTo}`;
+            if (!confirm(`Hapus semua assignment ${crmName} untuk periode ${periode}?`)) return;
+            const { error } = await sbApp.from('crm_assignments')
+                .delete()
+                .eq('crm_name', crmName)
+                .eq('date_from', dateFrom)
+                .eq('date_to', dateTo);
+            if (error) { alert('Gagal hapus: ' + error.message); return; }
+            await loadAssignments();
+            loadRiwayat();
+        }
+
+        function clearRiwayatFilter() {
+            document.getElementById('riwayatTeamFilter').value = '';
+            document.getElementById('riwayatCrmFilter').value = '';
+            document.getElementById('riwayatDateFrom').value = '';
+            document.getElementById('riwayatDateTo').value = '';
             loadRiwayat();
         }
 
