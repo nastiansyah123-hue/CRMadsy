@@ -370,51 +370,50 @@
             const dateFrom = document.getElementById('adminDateFrom').value;
             const dateTo = document.getElementById('adminDateTo').value;
 
-            if (!dateFrom || !dateTo) {
-                alert('Pilih tanggal dari dan sampai!');
-                return;
-            }
+            if (!dateFrom || !dateTo) { alert('Pilih tanggal dari dan sampai!'); return; }
 
             try {
                 const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
-                const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
+                const dateToUTC   = new Date(dateTo   + 'T23:59:59+07:00').toISOString();
 
-                console.log('🔍 Loading CS with products');
+                let rawData = [];
+                let pg = 0; const pgSize = 1000; let pgMore = true;
+                while (pgMore) {
+                    const { data: chunk, error } = await sbData
+                        .from('all_orderan')
+                        .select('cs, jumlah, team')
+                        .ilike('sumber', 'Validasi')
+                        .gte('created_at', dateFromUTC)
+                        .lte('created_at', dateToUTC)
+                        .range(pg * pgSize, (pg + 1) * pgSize - 1);
+                    if (error) throw error;
+                    if (chunk && chunk.length > 0) {
+                        rawData = rawData.concat(chunk);
+                        pgMore = chunk.length === pgSize;
+                        pg++;
+                    } else { pgMore = false; }
+                }
 
-                const { data, error } = await sbData
-                    .from('all_orderan')
-                    .select('cs, jumlah')
-                    .ilike('sumber', 'Validasi')
-                    .gte('created_at', dateFromUTC)
-                    .lte('created_at', dateToUTC)
-                    .range(0, 99999);
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    const csWithProducts = {};
-                    data.forEach(row => {
+                if (rawData.length > 0) {
+                    const csMap = {};
+                    rawData.forEach(row => {
                         if (!row.cs) return;
                         const produk = extractProduk(row.jumlah);
                         if (!produk) return;
-
-                        if (!csWithProducts[row.cs]) {
-                            csWithProducts[row.cs] = new Set();
-                        }
-                        csWithProducts[row.cs].add(produk);
+                        if (!csMap[row.cs]) csMap[row.cs] = { team: row.team || 'Lainnya', products: new Set() };
+                        csMap[row.cs].products.add(produk);
                     });
 
-                    allCS = Object.keys(csWithProducts).sort().map(cs => {
-                        const u = users.find(u => u.username === cs);
-                        return { name: cs, team: u?.team || 'Lainnya', products: Array.from(csWithProducts[cs]).sort() };
-                    });
-
-                    console.log(`✅ Loaded ${allCS.length} CS with products:`, allCS);
+                    allCS = Object.keys(csMap).sort().map(cs => ({
+                        name: cs,
+                        team: csMap[cs].team,
+                        products: Array.from(csMap[cs].products).sort()
+                    }));
 
                     updateAdminCSTotal();
                     populateTeamDropdown();
                     await updateAssignmentStats();
-                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${rawData.length} orderan\nPeriode: ${dateFrom} - ${dateTo}`);
                 } else {
                     alert('❌ Tidak ada data di periode tersebut!');
                 }
@@ -425,34 +424,43 @@
         }
 
         async function loadAllCSNow() {
-            if (!confirm('Load semua CS? (Bisa lambat jika data >100k)')) return;
+            if (!confirm('Load semua CS? (Bisa lambat jika data banyak)')) return;
 
             try {
-                const { data, error } = await sbData
-                    .from('all_orderan')
-                    .select('cs, jumlah')
-                    .range(0, 99999);
+                let rawData = [];
+                let pg = 0; const pgSize = 1000; let pgMore = true;
+                while (pgMore) {
+                    const { data: chunk, error } = await sbData
+                        .from('all_orderan')
+                        .select('cs, jumlah, team')
+                        .range(pg * pgSize, (pg + 1) * pgSize - 1);
+                    if (error) throw error;
+                    if (chunk && chunk.length > 0) {
+                        rawData = rawData.concat(chunk);
+                        pgMore = chunk.length === pgSize;
+                        pg++;
+                    } else { pgMore = false; }
+                }
 
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    const csWithProducts = {};
-                    data.forEach(row => {
+                if (rawData.length > 0) {
+                    const csMap = {};
+                    rawData.forEach(row => {
                         if (!row.cs) return;
                         const produk = extractProduk(row.jumlah);
                         if (!produk) return;
-                        if (!csWithProducts[row.cs]) csWithProducts[row.cs] = new Set();
-                        csWithProducts[row.cs].add(produk);
+                        if (!csMap[row.cs]) csMap[row.cs] = { team: row.team || 'Lainnya', products: new Set() };
+                        csMap[row.cs].products.add(produk);
                     });
 
-                    allCS = Object.keys(csWithProducts).sort().map(cs => {
-                        const u = users.find(u => u.username === cs);
-                        return { name: cs, team: u?.team || 'Lainnya', products: Array.from(csWithProducts[cs]).sort() };
-                    });
+                    allCS = Object.keys(csMap).sort().map(cs => ({
+                        name: cs,
+                        team: csMap[cs].team,
+                        products: Array.from(csMap[cs].products).sort()
+                    }));
 
                     updateAdminCSTotal();
                     populateTeamDropdown();
-                    alert(`✅ Berhasil load ${allCS.length} CS dari ${data.length} orderan`);
+                    alert(`✅ Berhasil load ${allCS.length} CS dari ${rawData.length} orderan`);
                 } else {
                     alert('❌ Tidak ada data!');
                 }
