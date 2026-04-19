@@ -866,6 +866,75 @@
     </div>
 </div>
 
+<!-- ═══ EDIT PELANGGAN MODAL ═══ -->
+<div id="editPelangganModal" class="crm-modal hidden">
+    <div class="crm-modal-box" style="max-width:620px;">
+        <div class="crm-modal-title">✏️ Edit Pelanggan</div>
+        <div class="crm-modal-sub" id="editPelangganSub"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+            <div>
+                <label class="crm-form-label">Type</label>
+                <select id="epType" class="crm-select" style="width:100%;margin-top:5px;">
+                    <option value="">— Pilih —</option>
+                    <option value="🟢 Aktif">🟢 Aktif</option>
+                    <option value="🟡 Pasif">🟡 Pasif</option>
+                    <option value="🟠 Jenuh">🟠 Jenuh</option>
+                </select>
+            </div>
+            <div>
+                <label class="crm-form-label">Interaksi Terakhir</label>
+                <select id="epInteraksi" class="crm-select" style="width:100%;margin-top:5px;">
+                    <option value="">— Pilih —</option>
+                    <option value="RESPON BAIK">RESPON BAIK</option>
+                    <option value="READ">READ</option>
+                    <option value="CENTANG 2">CENTANG 2</option>
+                    <option value="NO RESPON">NO RESPON</option>
+                </select>
+            </div>
+            <div>
+                <label class="crm-form-label">Penyakit</label>
+                <input type="text" id="epPenyakit" class="crm-input" style="width:100%;margin-top:5px;">
+            </div>
+            <div>
+                <label class="crm-form-label">Tgl Lahir</label>
+                <input type="date" id="epTglLahir" class="crm-input" style="width:100%;margin-top:5px;">
+            </div>
+            <div>
+                <label class="crm-form-label">Usia</label>
+                <input type="text" id="epUsia" class="crm-input" style="width:100%;margin-top:5px;" placeholder="misal: 45">
+            </div>
+            <div>
+                <label class="crm-form-label">Jenis Kelamin</label>
+                <select id="epJK" class="crm-select" style="width:100%;margin-top:5px;">
+                    <option value="">— Pilih —</option>
+                    <option value="Laki-laki">Laki-laki</option>
+                    <option value="Perempuan">Perempuan</option>
+                </select>
+            </div>
+            <div>
+                <label class="crm-form-label">Pekerjaan</label>
+                <input type="text" id="epPekerjaan" class="crm-input" style="width:100%;margin-top:5px;">
+            </div>
+            <div>
+                <label class="crm-form-label">Last Follow-Up</label>
+                <input type="date" id="epLastFU" class="crm-input" style="width:100%;margin-top:5px;">
+            </div>
+            <div style="grid-column:1/-1;">
+                <label class="crm-form-label">Perkembangan</label>
+                <textarea id="epPerkembangan" class="crm-input" style="width:100%;margin-top:5px;height:72px;resize:vertical;"></textarea>
+            </div>
+            <div style="grid-column:1/-1;">
+                <label class="crm-form-label">Catatan</label>
+                <textarea id="epCatatan" class="crm-input" style="width:100%;margin-top:5px;height:72px;resize:vertical;"></textarea>
+            </div>
+        </div>
+        <div style="display:flex;gap:12px;">
+            <button onclick="savePelanggan()" class="crm-btn crm-btn-primary" style="flex:1;justify-content:center;">💾 Simpan</button>
+            <button onclick="closeEditPelangganModal()" class="crm-btn crm-btn-secondary" style="flex:1;justify-content:center;">Batal</button>
+        </div>
+    </div>
+</div>
+
 <script src="js/shared.js"></script>
 <script>
     const CRM_SECTIONS = ['dashboard','pesanan','produk','pelangganList','pengelompokan','segmentasi','grup','ultah','kalender','kirimPesan','task'];
@@ -1032,27 +1101,48 @@
 
         console.log('[Pelanggan] total records ditemukan di crm_customers:', all.length);
 
-        // Kalau crm_customers kosong, fallback ke data orders yang sudah ada di memori
+        // Kalau crm_customers kosong, auto-sync dari orders lalu insert ke database
         if (!all.length && orders.length) {
-            console.log('[Pelanggan] fallback dari orders array, total orders:', orders.length);
+            console.log('[Pelanggan] crm_customers kosong, auto-sync dari orders...');
             const seen = new Set();
+            const toInsert = [];
             orders.forEach(o => {
-                const key = (o.hp || '') + '|' + (o.cs || '');
-                if (!seen.has(key)) {
+                const key = (o.hp || o.nama || '') + '|' + (o.cs || '');
+                if (key && !key.startsWith('|') && !seen.has(key)) {
                     seen.add(key);
-                    all.push({
-                        id:      key,
-                        nama:    o.nama    || null,
-                        no_hp:   o.hp      || null,
-                        kab:     o.kabupaten || null,
-                        prov:    o.provinsi  || null,
-                        nama_cs: o.cs       || null,
-                        desa: null, kec: null, type: null, penyakit: null,
-                        usia: null, jenis_kelamin: null, pekerjaan: null,
-                        interaksi_terakhir: null, last_fu: null, tgl_lahir: null,
+                    toInsert.push({
+                        nama:    o.nama       || null,
+                        no_hp:   o.hp         || null,
+                        kab:     o.kabupaten  || null,
+                        prov:    o.provinsi   || null,
+                        nama_cs: o.cs         || null,
+                        crm:     currentUser.username,
+                        tgl:     o.created_at ? o.created_at.slice(0, 10) : null,
                     });
                 }
             });
+
+            if (toInsert.length) {
+                tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:48px;color:#6366F1;">⏳ Menyimpan ${toInsert.length} pelanggan ke database...</td></tr>`;
+                const batchSize = 100;
+                for (let i = 0; i < toInsert.length; i += batchSize) {
+                    await sbApp.from('crm_customers')
+                        .upsert(toInsert.slice(i, i + batchSize), {
+                            onConflict: 'no_hp,nama_cs',
+                            ignoreDuplicates: true
+                        });
+                }
+                // Reload dari database supaya dapat real id
+                let pg2 = 0, more2 = true;
+                while (more2) {
+                    const { data: d2 } = await sbApp.from('crm_customers')
+                        .select('*').in('nama_cs', assignedCS)
+                        .range(pg2 * 1000, (pg2 + 1) * 1000 - 1);
+                    if (d2 && d2.length > 0) { all = all.concat(d2); more2 = d2.length === 1000; pg2++; }
+                    else more2 = false;
+                }
+                console.log('[Pelanggan] setelah sync, total:', all.length);
+            }
         }
 
         if (!all.length) {
@@ -1149,12 +1239,54 @@
         renderPelangganTable();
     }
 
+    let editPelangganId = null;
+
     function openPelangganDetail(id) {
         const c = crmCustomers.find(x => x.id === id);
         if (!c) return;
-        const typeEmoji = { 'Aktif':'🟢', 'Pasif':'🟡', 'Jenuh':'🟠' };
-        const typeKey = Object.keys(typeEmoji).find(k => (c.type||'').includes(k)) || '';
-        alert(`👤 ${c.nama}\n📱 ${c.no_hp||'-'}\n📍 ${c.kab||'-'}, ${c.prov||'-'}\n\n🏥 Penyakit: ${c.penyakit||'-'}\n👤 ${c.jenis_kelamin||'-'}, ${c.usia||'-'} thn\n💼 ${c.pekerjaan||'-'}\n🎂 ${c.tgl_lahir||'-'}\n\n${typeKey ? typeEmoji[typeKey]+' '+typeKey : '—'} | ${c.interaksi_terakhir||'-'}\n📅 Last FU: ${c.last_fu||'-'}\n\nPerkembangan: ${c.perkembangan||'-'}\nCatatan: ${c.catatan||'-'}`);
+        editPelangganId = id;
+        document.getElementById('editPelangganSub').textContent = `${c.nama || '-'} · ${c.no_hp || '-'} · ${c.kab || '-'}`;
+        document.getElementById('epType').value        = c.type || '';
+        document.getElementById('epInteraksi').value   = c.interaksi_terakhir || '';
+        document.getElementById('epPenyakit').value    = c.penyakit || '';
+        document.getElementById('epTglLahir').value    = c.tgl_lahir || '';
+        document.getElementById('epUsia').value        = c.usia || '';
+        document.getElementById('epJK').value          = c.jenis_kelamin || '';
+        document.getElementById('epPekerjaan').value   = c.pekerjaan || '';
+        document.getElementById('epLastFU').value      = c.last_fu || '';
+        document.getElementById('epPerkembangan').value= c.perkembangan || '';
+        document.getElementById('epCatatan').value     = c.catatan || '';
+        document.getElementById('editPelangganModal').classList.remove('hidden');
+    }
+
+    function closeEditPelangganModal() {
+        document.getElementById('editPelangganModal').classList.add('hidden');
+        editPelangganId = null;
+    }
+
+    async function savePelanggan() {
+        if (!editPelangganId) return;
+        const updates = {
+            type:               document.getElementById('epType').value || null,
+            interaksi_terakhir: document.getElementById('epInteraksi').value || null,
+            penyakit:           document.getElementById('epPenyakit').value || null,
+            tgl_lahir:          document.getElementById('epTglLahir').value || null,
+            usia:               document.getElementById('epUsia').value || null,
+            jenis_kelamin:      document.getElementById('epJK').value || null,
+            pekerjaan:          document.getElementById('epPekerjaan').value || null,
+            last_fu:            document.getElementById('epLastFU').value || null,
+            perkembangan:       document.getElementById('epPerkembangan').value || null,
+            catatan:            document.getElementById('epCatatan').value || null,
+        };
+        const { error } = await sbApp.from('crm_customers').update(updates).eq('id', editPelangganId);
+        if (error) { alert('Gagal simpan: ' + error.message); return; }
+
+        // Update local array
+        const idx = crmCustomers.findIndex(x => x.id === editPelangganId);
+        if (idx >= 0) crmCustomers[idx] = { ...crmCustomers[idx], ...updates };
+
+        closeEditPelangganModal();
+        renderPelangganTable();
     }
 
     // ── UPLOAD CSV ──
