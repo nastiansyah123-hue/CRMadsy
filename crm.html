@@ -1533,16 +1533,16 @@
     async function syncAll() {
         const btn   = document.getElementById('syncBtn');
         const label = document.getElementById('syncBtnLabel');
-        btn.disabled = true;
-        label.textContent = 'Memuat...';
+        if (btn) { btn.disabled = true; label.textContent = 'Memuat...'; }
         try {
-            await loadAssignments();   // refresh assignment terbaru dari admin
-            await loadOrders();        // reload orders pakai assignment baru
-            crmCustomers = [];         // reset cache pelanggan supaya reload fresh
+            await loadAssignments();
+            await Promise.all([
+                loadOrders(),
+                loadPelanggan()
+            ]);
             renderDashboard();
         } finally {
-            btn.disabled = false;
-            label.textContent = 'Sync Data';
+            if (btn) { btn.disabled = false; label.textContent = 'Sync Data'; }
         }
     }
 
