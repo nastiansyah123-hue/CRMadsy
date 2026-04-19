@@ -247,6 +247,8 @@ function syncDateLabel2() {
     if (lbl && main) lbl.textContent = main.textContent;
 }
 
+let _drpOutsideHandler = null;
+
 function toggleDatePicker(btn) {
     if (document.getElementById('drpContainer')) { closeDatePicker(); return; }
     if (!drp.leftYear) {
@@ -255,25 +257,31 @@ function toggleDatePicker(btn) {
         drp.leftMonth = t.getMonth();
     }
 
-    const overlay = document.createElement('div');
-    overlay.className = 'drp-overlay';
-    overlay.id = 'drpOverlay';
-    overlay.addEventListener('mousedown', closeDatePicker);
-    document.body.appendChild(overlay);
-
     const container = document.createElement('div');
     container.className = 'drp-container';
     container.id = 'drpContainer';
     const rect = btn.getBoundingClientRect();
     container.style.top  = (rect.bottom + 6) + 'px';
-    container.style.left = Math.min(rect.left, window.innerWidth - 780) + 'px';
-    container.addEventListener('mousedown', e => e.stopPropagation());
+    container.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 780)) + 'px';
     document.body.appendChild(container);
     drpRender();
+
+    // Tutup kalau klik di luar container atau tombol
+    _drpOutsideHandler = function(e) {
+        const c = document.getElementById('drpContainer');
+        if (!c) { document.removeEventListener('mousedown', _drpOutsideHandler); return; }
+        if (c.contains(e.target) || btn.contains(e.target)) return;
+        closeDatePicker();
+    };
+    // Tambah listener setelah event click saat ini selesai (tidak pakai setTimeout — onclick sdh pasca mousedown)
+    document.addEventListener('mousedown', _drpOutsideHandler);
 }
 
 function closeDatePicker() {
-    document.getElementById('drpOverlay')?.remove();
+    if (_drpOutsideHandler) {
+        document.removeEventListener('mousedown', _drpOutsideHandler);
+        _drpOutsideHandler = null;
+    }
     document.getElementById('drpContainer')?.remove();
 }
 

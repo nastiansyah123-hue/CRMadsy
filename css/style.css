@@ -378,7 +378,6 @@ tbody tr:hover { background: #FAFBFF; }
 .search-input:focus { border-color: #7C3AED; background: white; }
 
 /* ===================== DATE RANGE PICKER ===================== */
-.drp-overlay { position: fixed; inset: 0; z-index: 998; }
 .drp-container {
     position: fixed;
     z-index: 999;
@@ -446,3 +445,62 @@ tbody tr:hover { background: #FAFBFF; }
     align-items: center;
     background: #FAFBFF;
 }
+
+/* ===================== NAV GROUPS ===================== */
+.nav-section-label {
+    padding: 14px 16px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #C4B5FD;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.nav-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6B7280;
+    border-radius: 12px;
+    transition: all 0.18s;
+    user-select: none;
+}
+.nav-group-header:hover { background: #F5F3FF; color: #5B21B6; }
+.nav-group-header.group-open { color: #5B21B6; }
+.nav-group-label { display: flex; align-items: center; gap: 12px; }
+.nav-group-arrow { font-size: 10px; color: #A78BFA; transition: transform 0.2s; }
+.nav-group-arrow.open { transform: rotate(180deg); }
+.nav-group-items { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.nav-sub-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px 9px 44px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6B7280;
+    border-radius: 10px;
+    transition: all 0.15s;
+}
+.nav-sub-item:hover { background: #F5F3FF; color: #5B21B6; }
+.nav-sub-item.nav-active {
+    background: linear-gradient(135deg, #EDE9FE, #DDD6FE);
+    color: #5B21B6;
+    font-weight: 700;
+}
+
+/* ===================== COMING SOON CARD ===================== */
+.coming-soon-card {
+    background: white;
+    border-radius: 20px;
+    padding: 64px 32px;
+    text-align: center;
+    border: 2px dashed #DDD6FE;
+}
+.coming-soon-icon { font-size: 52px; margin-bottom: 16px; }
+.coming-soon-title { font-size: 18px; font-weight: 800; color: #1E1B4B; margin-bottom: 8px; }
+.coming-soon-sub { font-size: 13px; color: #94A3B8; }
