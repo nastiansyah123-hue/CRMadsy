@@ -663,7 +663,7 @@
         async function onAdminCRMChange() {
             currentCRM = document.getElementById('adminCrmSelect').value;
             if (currentCRM) {
-                selectedCS = assignments[currentCRM] || [];
+                selectedCS = [];   // reset — jangan bawa pilihan lama
                 await renderAdminCSGrid();
                 document.getElementById('adminCsSelection').classList.remove('hidden');
             }
@@ -910,8 +910,8 @@
 
             await sbApp.from('crm_assignments').insert(assignmentData);
 
-            // Sync pelanggan dari all_orderan ke crm_customers
-            await syncCustomersFromAssignment(assignmentList, currentCRM, dateFrom, dateTo);
+            // Sync pelanggan di background — tidak perlu tunggu selesai
+            syncCustomersFromAssignment(assignmentList, currentCRM, dateFrom, dateTo);
 
             await loadAssignments();
             await updateAssignmentStats();
