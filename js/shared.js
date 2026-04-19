@@ -29,7 +29,7 @@ async function initSupabase() {
 
         const { createClient } = supabase;
         sbData = createClient(CONFIG.DATA_SUPABASE_URL, CONFIG.DATA_SUPABASE_KEY);
-        sbApp = createClient(CONFIG.APP_SUPABASE_URL, CONFIG.APP_SUPABASE_KEY);
+        sbApp  = createClient(CONFIG.APP_SUPABASE_URL, CONFIG.APP_SUPABASE_KEY);
     } catch (error) {
         console.error('Failed to load config:', error);
         alert('Failed to load configuration. Please refresh the page.');
@@ -140,6 +140,7 @@ function extractEkspedisi(pembayaran) {
 // DATE RANGE PICKER
 // =====================
 const DRP_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const DRP_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const DRP_DAYS   = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 
 let drp = {
@@ -157,11 +158,16 @@ function drpToday() {
     return new Date(n.getFullYear(), n.getMonth(), n.getDate());
 }
 
+// Format panjang: "10 April 2026"
 function drpFmt(date) {
     if (!date) return '—';
-    const d = date.getDate().toString().padStart(2,'0');
-    const m = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][date.getMonth()];
-    return `${d} ${m} ${date.getFullYear()}`;
+    return `${date.getDate()} ${DRP_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+// Format pendek untuk label tombol: "10 Apr 2026"
+function drpFmtShort(date) {
+    if (!date) return '—';
+    return `${date.getDate()} ${DRP_MONTHS_SHORT[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function drpToStr(date) {
@@ -229,8 +235,8 @@ function drpApplyToInputs() {
     if (label) {
         if (drp.startDate && drp.endDate) {
             label.textContent = drpToStr(drp.startDate) === drpToStr(drp.endDate)
-                ? drpFmt(drp.startDate)
-                : `${drpFmt(drp.startDate)} – ${drpFmt(drp.endDate)}`;
+                ? drpFmtShort(drp.startDate)
+                : `${drpFmtShort(drp.startDate)} – ${drpFmtShort(drp.endDate)}`;
         }
     }
 }
@@ -248,10 +254,11 @@ function toggleDatePicker(btn) {
         drp.leftYear  = t.getFullYear();
         drp.leftMonth = t.getMonth();
     }
+
     const overlay = document.createElement('div');
     overlay.className = 'drp-overlay';
     overlay.id = 'drpOverlay';
-    overlay.onclick = closeDatePicker;
+    overlay.addEventListener('mousedown', closeDatePicker);
     document.body.appendChild(overlay);
 
     const container = document.createElement('div');
@@ -259,18 +266,15 @@ function toggleDatePicker(btn) {
     container.id = 'drpContainer';
     const rect = btn.getBoundingClientRect();
     container.style.top  = (rect.bottom + 6) + 'px';
-    container.style.left = Math.min(rect.left, window.innerWidth - 760) + 'px';
-    container.onclick = e => e.stopPropagation();
+    container.style.left = Math.min(rect.left, window.innerWidth - 780) + 'px';
+    container.addEventListener('mousedown', e => e.stopPropagation());
     document.body.appendChild(container);
     drpRender();
-
-    window.addEventListener('scroll', closeDatePicker, { capture: true, once: true });
 }
 
 function closeDatePicker() {
     document.getElementById('drpOverlay')?.remove();
     document.getElementById('drpContainer')?.remove();
-    window.removeEventListener('scroll', closeDatePicker, true);
 }
 
 function drpClickDay(dateStr) {
@@ -306,6 +310,12 @@ function drpNavMonth(dir) {
     drpRender();
 }
 
+function drpSetLeftMonth(m, y) {
+    drp.leftMonth = parseInt(m);
+    drp.leftYear  = parseInt(y);
+    drpRender();
+}
+
 function drpApply() {
     if (!drp.startDate || !drp.endDate) { alert('Pilih tanggal mulai dan selesai!'); return; }
     drpApplyToInputs();
@@ -315,17 +325,31 @@ function drpApply() {
 }
 
 function drpRenderCal(year, month) {
-    const today     = drpToday();
-    const firstDay  = new Date(year, month, 1).getDay();
-    const lastDay   = new Date(year, month+1, 0).getDate();
-    const prevLast  = new Date(year, month, 0).getDate();
+    const today    = drpToday();
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDay  = new Date(year, month+1, 0).getDate();
+    const prevLast = new Date(year, month, 0).getDate();
 
-    let html = DRP_DAYS.map(d => `<div class="drp-day-hdr">${d}</div>`).join('');
+    // Month dropdown
+    const monthSel = DRP_MONTHS.map((mn, i) =>
+        `<option value="${i}" ${i===month?'selected':''}>${mn}</option>`
+    ).join('');
+
+    // Year dropdown
+    const curY = today.getFullYear();
+    let yearSel = '';
+    for (let y = curY - 3; y <= curY + 3; y++) {
+        yearSel += `<option value="${y}" ${y===year?'selected':''}>${y}</option>`;
+    }
+
+    const selStyle = `border:1px solid #E5E7EB;border-radius:6px;padding:3px 6px;font-size:12px;font-weight:700;color:#1E293B;background:white;cursor:pointer;outline:none;`;
+
+    let days = DRP_DAYS.map(d => `<div class="drp-day-hdr">${d}</div>`).join('');
 
     for (let i = firstDay-1; i >= 0; i--) {
         const d = prevLast - i;
         const s = drpToStr(new Date(year, month-1, d));
-        html += `<div class="drp-day drp-other" onclick="drpClickDay('${s}')" onmouseenter="drpHoverDay('${s}')">${d}</div>`;
+        days += `<div class="drp-day drp-other">${d}</div>`;
     }
 
     for (let d = 1; d <= lastDay; d++) {
@@ -347,15 +371,16 @@ function drpRenderCal(year, month) {
             cls += ' drp-sel';
         }
 
-        html += `<div class="${cls}" onclick="drpClickDay('${s}')" onmouseenter="drpHoverDay('${s}')">${d}</div>`;
+        days += `<div class="${cls}" data-date="${s}">${d}</div>`;
     }
 
     return `
         <div>
-            <div style="text-align:center;font-weight:700;font-size:13px;color:#1e293b;margin-bottom:10px;">
-                ${DRP_MONTHS[month]} ${year}
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:12px;">
+                <select style="${selStyle}" onchange="drpSetLeftMonth(this.value,${year})">${monthSel}</select>
+                <select style="${selStyle}" onchange="drpSetLeftMonth(${month},this.value)">${yearSel}</select>
             </div>
-            <div class="drp-month-grid">${html}</div>
+            <div class="drp-month-grid">${days}</div>
         </div>`;
 }
 
@@ -389,33 +414,69 @@ function drpRender() {
         <div class="drp-presets">
             <div style="padding:10px 18px 6px;font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.06em;">PRESET</div>
             ${presets.map(p => `
-                <div class="drp-preset-item ${drp.activePreset===p.key?'drp-active':''}" onclick="drpSetPreset('${p.key}');drpRender();">
+                <div class="drp-preset-item ${drp.activePreset===p.key?'drp-active':''}" data-key="${p.key}">
                     <input type="radio" name="drp-preset" ${drp.activePreset===p.key?'checked':''}>
                     ${p.label}
                 </div>
             `).join('')}
         </div>
-        <div style="flex:1;display:flex;flex-direction:column;min-width:520px;">
-            <div style="padding:20px;display:flex;align-items:flex-start;gap:12px;">
-                <button onclick="drpNavMonth(-1)" class="btn btn-secondary btn-small" style="margin-top:4px;">&#8249;</button>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;flex:1;">
+        <div style="flex:1;display:flex;flex-direction:column;min-width:540px;">
+            <div style="padding:20px 24px;display:flex;align-items:flex-start;gap:16px;">
+                <button class="btn btn-secondary btn-small" style="margin-top:28px;flex-shrink:0;" data-nav="-1">&#8249;</button>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;flex:1;">
                     ${drpRenderCal(drp.leftYear, drp.leftMonth)}
                     ${drpRenderCal(right.y, right.m)}
                 </div>
-                <button onclick="drpNavMonth(1)" class="btn btn-secondary btn-small" style="margin-top:4px;">&#8250;</button>
+                <button class="btn btn-secondary btn-small" style="margin-top:28px;flex-shrink:0;" data-nav="1">&#8250;</button>
             </div>
             <div class="drp-footer">
                 <div>
-                    <div style="font-size:13px;font-weight:600;color:#334155;">
+                    <div style="font-size:13px;font-weight:700;color:#334155;">
                         ${startLbl} &nbsp;–&nbsp; ${endLbl}
                     </div>
                     <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Tanggal ditampilkan dalam Waktu Jakarta</div>
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="closeDatePicker()" class="btn btn-secondary">Batal</button>
-                    <button onclick="drpApply()" class="btn btn-primary">Update</button>
+                    <button class="btn btn-secondary" id="drpBtnBatal">Batal</button>
+                    <button class="btn btn-primary" id="drpBtnUpdate">Update</button>
                 </div>
             </div>
         </div>
     `;
+
+    // Attach event listeners (tidak pakai inline onclick agar tidak ada konflik)
+    c.querySelectorAll('.drp-preset-item').forEach(el => {
+        el.addEventListener('mousedown', e => {
+            e.stopPropagation();
+            drpSetPreset(el.dataset.key);
+            drpRender();
+        });
+    });
+
+    c.querySelectorAll('[data-nav]').forEach(el => {
+        el.addEventListener('mousedown', e => {
+            e.stopPropagation();
+            drpNavMonth(parseInt(el.dataset.nav));
+        });
+    });
+
+    c.querySelectorAll('.drp-day:not(.drp-other)').forEach(el => {
+        el.addEventListener('mousedown', e => {
+            e.stopPropagation();
+            drpClickDay(el.dataset.date);
+        });
+        el.addEventListener('mouseenter', () => {
+            if (drp.selecting) {
+                drp.hoverDate = new Date(el.dataset.date + 'T00:00:00');
+                drpRender();
+            }
+        });
+    });
+
+    c.querySelector('#drpBtnBatal')?.addEventListener('mousedown', e => {
+        e.stopPropagation(); closeDatePicker();
+    });
+    c.querySelector('#drpBtnUpdate')?.addEventListener('mousedown', e => {
+        e.stopPropagation(); drpApply();
+    });
 }
