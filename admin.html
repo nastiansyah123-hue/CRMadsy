@@ -964,14 +964,14 @@
 
             const start = (page - 1) * orderanPageSize;
             let q = sbData.from('all_orderan')
-                .select('id, cs, team, nama, telepon, jumlah, resi, pembayaran, created_at')
+                .select('id, cs, team, nama, hp, jumlah, resi, pembayaran, created_at')
                 .order('created_at', { ascending: false })
                 .range(start, start + orderanPageSize - 1);
 
             if (dateFrom) q = q.gte('created_at', new Date(dateFrom + 'T00:00:00+07:00').toISOString());
             if (dateTo)   q = q.lte('created_at', new Date(dateTo   + 'T23:59:59+07:00').toISOString());
             if (teamFilter) q = q.eq('team', teamFilter);
-            if (searchQ)    q = q.or(`nama.ilike.%${searchQ}%,cs.ilike.%${searchQ}%,telepon.ilike.%${searchQ}%,resi.ilike.%${searchQ}%`);
+            if (searchQ)    q = q.or(`nama.ilike.%${searchQ}%,cs.ilike.%${searchQ}%,hp.ilike.%${searchQ}%,resi.ilike.%${searchQ}%`);
 
             return q;
         }
@@ -1024,7 +1024,7 @@
                         <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.team || '-')}</td>
                         <td style="padding:8px 12px;font-size:12px;font-weight:600;">${escapeHtml(r.cs || '-')}</td>
                         <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.nama || '-')}</td>
-                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.telepon || '-')}</td>
+                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.hp || '-')}</td>
                         <td style="padding:8px 12px;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.jumlah || '')}">${escapeHtml(r.jumlah || '-')}</td>
                         <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.resi || '-')}</td>
                         <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.pembayaran || '-')}</td>
@@ -1050,7 +1050,7 @@
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Team</th>
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">CS</th>
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Nama</th>
-                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">No. Telp</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">No. HP</th>
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Jumlah/Produk</th>
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Resi</th>
                             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Pembayaran</th>
