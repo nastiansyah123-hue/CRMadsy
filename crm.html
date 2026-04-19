@@ -3,538 +3,951 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRM Adsy - CRM View</title>
+    <title>CRM Adsy</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body style="background: #f8fafc; min-height: 100vh;">
-    <div class="container">
-        <div class="header">
+<body>
+<div class="app-layout">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-title">CRM Adsy</div>
+            <div class="sidebar-brand-sub">CRM Panel</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <!-- Dashboard -->
+            <div class="nav-item nav-active" id="navItem-dashboard" onclick="crmShowSection('dashboard', this)">
+                <span class="nav-icon">🏠</span>
+                <span>Dashboard</span>
+            </div>
+
+            <!-- Data Utama -->
+            <div class="nav-section-label">Data Utama</div>
+            <div class="nav-group-header group-open" onclick="toggleNavGroup('dataUtama')">
+                <div class="nav-group-label">
+                    <span class="nav-icon">📋</span>
+                    <span>Data Utama</span>
+                </div>
+                <span class="nav-group-arrow open" id="arrow-dataUtama">▼</span>
+            </div>
+            <div class="nav-group-items" id="group-dataUtama">
+                <div class="nav-sub-item" id="navItem-pesanan" onclick="crmShowSection('pesanan', this)">
+                    <span>📦</span> Pesanan
+                </div>
+                <div class="nav-sub-item" id="navItem-produk" onclick="crmShowSection('produk', this)">
+                    <span>🏷️</span> Produk
+                </div>
+            </div>
+
+            <!-- Pelanggan -->
+            <div class="nav-section-label">Pelanggan</div>
+            <div class="nav-group-header" onclick="toggleNavGroup('pelanggan')">
+                <div class="nav-group-label">
+                    <span class="nav-icon">👤</span>
+                    <span>Pelanggan</span>
+                </div>
+                <span class="nav-group-arrow" id="arrow-pelanggan">▼</span>
+            </div>
+            <div class="nav-group-items hidden" id="group-pelanggan">
+                <div class="nav-sub-item" id="navItem-pelangganList" onclick="crmShowSection('pelangganList', this)">
+                    <span>👥</span> Pelanggan
+                </div>
+                <div class="nav-sub-item" id="navItem-pengelompokan" onclick="crmShowSection('pengelompokan', this)">
+                    <span>🗂️</span> Pengelompokan
+                </div>
+                <div class="nav-sub-item" id="navItem-ultah" onclick="crmShowSection('ultah', this)">
+                    <span>🎂</span> Ulang Tahun
+                </div>
+            </div>
+
+            <!-- Kirim Pesan -->
+            <div class="nav-section-label">Komunikasi</div>
+            <div class="nav-group-header" onclick="toggleNavGroup('kirimPesan')">
+                <div class="nav-group-label">
+                    <span class="nav-icon">💬</span>
+                    <span>Kirim Pesan</span>
+                </div>
+                <span class="nav-group-arrow" id="arrow-kirimPesan">▼</span>
+            </div>
+            <div class="nav-group-items hidden" id="group-kirimPesan">
+                <div class="nav-sub-item" id="navItem-kalender" onclick="crmShowSection('kalender', this)">
+                    <span>📅</span> Kalender
+                </div>
+                <div class="nav-sub-item" id="navItem-kirimPesanSec" onclick="crmShowSection('kirimPesanSec', this)">
+                    <span>✉️</span> Kirim Pesan
+                </div>
+            </div>
+
+            <!-- Task -->
+            <div class="nav-section-label">Manajemen</div>
+            <div class="nav-item" id="navItem-task" onclick="crmShowSection('task', this)">
+                <span class="nav-icon">✅</span>
+                <span>Task</span>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
             <div>
-                <h1 class="header-title" id="crmTitle">Dashboard</h1>
+                <div class="sidebar-username" id="crmUsername"></div>
+                <span class="role-badge role-crm" style="margin-top: 4px; display: inline-block;">CRM</span>
             </div>
-            <div class="user-info">
-                <span class="role-badge role-crm">CRM</span>
-                <span id="crmUsername" style="font-weight: 600;"></span>
-                <button onclick="loadOrders()" class="btn btn-primary btn-small">🔄</button>
-                <button onclick="logout()" class="btn btn-secondary btn-small">Logout</button>
-            </div>
+            <button onclick="logout()" class="btn btn-secondary btn-small" style="width: 100%; margin-top: 8px;">Logout</button>
         </div>
+    </aside>
 
-        <div class="stats-grid">
-            <div class="stat-card" style="border-left: 4px solid #667eea;">
-                <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
-                <div class="stat-value" style="color: #667eea;" id="statTotal">0</div>
-                <div style="font-size: 13px; color: #64748b;">Total</div>
-            </div>
-            <div class="stat-card" style="border-left: 4px solid #f59e0b;">
-                <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
-                <div class="stat-value" style="color: #f59e0b;" id="statPending">0</div>
-                <div style="font-size: 13px; color: #64748b;">Pending</div>
-            </div>
-            <div class="stat-card" style="border-left: 4px solid #10b981;">
-                <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
-                <div class="stat-value" style="color: #10b981;" id="statDelivered">0</div>
-                <div style="font-size: 13px; color: #64748b;">Delivered</div>
-            </div>
-            <div class="stat-card" style="border-left: 4px solid #ef4444;">
-                <div style="font-size: 32px; margin-bottom: 8px;">❌</div>
-                <div class="stat-value" style="color: #ef4444;" id="statCancelled">0</div>
-                <div style="font-size: 13px; color: #64748b;">Cancelled</div>
-            </div>
-        </div>
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main-content">
 
-        <div class="filters">
-            <input type="text" id="crmSearch" class="search-input" placeholder="🔍 Cari..." onkeyup="filterOrders()">
-            <select id="crmFilter" class="form-select" onchange="filterOrders()">
-                <option value="all">Semua</option>
-                <option value="Pending">Pending</option>
-                <option value="Processing">Processing</option>
-                <option value="Shipped">Shipped</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
-            </select>
-        </div>
+        <!-- ===== DASHBOARD ===== -->
+        <section id="crmSec-dashboard" class="admin-section sec-active">
+            <div class="section-header">
+                <div class="section-title">Dashboard</div>
+                <div class="section-sub" id="dashGreeting">Selamat datang!</div>
+            </div>
 
-        <!-- Filter Section -->
-        <div style="margin-bottom: 16px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">📅 Tanggal Assign</label>
-                    <input type="date" id="filterTanggalAssign" class="form-input" onchange="applyFilters()">
+            <!-- Stat Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <div class="card" style="margin-bottom:0;border-left:4px solid #7C3AED;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">📦 Total Orderan</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="dashTotal">—</div>
                 </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">👤 Pilih CS</label>
-                    <select id="filterCS" class="form-select" onchange="applyFilters()">
-                        <option value="">Semua CS</option>
-                    </select>
+                <div class="card" style="margin-bottom:0;border-left:4px solid #F59E0B;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#F59E0B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⏳ Pending</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="dashPending">—</div>
                 </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">📦 Pilih Produk</label>
-                    <select id="filterProduk" class="form-select" onchange="applyFilters()">
-                        <option value="">Semua Produk</option>
-                    </select>
+                <div class="card" style="margin-bottom:0;border-left:4px solid #059669;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">✅ Delivered</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="dashDelivered">—</div>
                 </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; display: block;">🚚 Pilih Ekspedisi</label>
-                    <select id="filterEkspedisi" class="form-select" onchange="applyFilters()">
-                        <option value="">Semua Ekspedisi</option>
-                    </select>
+                <div class="card" style="margin-bottom:0;border-left:4px solid #DC2626;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">❌ Cancelled</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="dashCancelled">—</div>
                 </div>
             </div>
-            <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
-                <button onclick="clearFilters()" class="btn btn-secondary btn-small">🔄 Reset Filter</button>
-                <span id="filterInfo" style="font-size: 12px; color: #64748b;"></span>
+
+            <!-- Recent Orders -->
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <div style="font-size:15px;font-weight:800;color:#1E1B4B;">Orderan Terbaru</div>
+                    <button onclick="crmShowSection('pesanan', document.getElementById('navItem-pesanan'))" class="btn btn-secondary btn-small">Lihat Semua →</button>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Nama</th>
+                                <th>Produk</th>
+                                <th>Status</th>
+                                <th>CS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashRecentTbody">
+                            <tr><td colspan="5" style="text-align:center;padding:32px;color:#A78BFA;">Memuat...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== PESANAN ===== -->
+        <section id="crmSec-pesanan" class="admin-section">
+            <div class="section-header">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                    <div>
+                        <div class="section-title">Pesanan</div>
+                        <div class="section-sub">Data orderan berdasarkan assignment CS</div>
+                    </div>
+                    <button onclick="loadOrders()" class="btn btn-secondary btn-small">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:16px;margin-bottom:24px;">
+                <div class="card" style="margin-bottom:0;border-left:4px solid #7C3AED;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">📦 Total</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="statTotal">0</div>
+                </div>
+                <div class="card" style="margin-bottom:0;border-left:4px solid #F59E0B;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#F59E0B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⏳ Pending</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="statPending">0</div>
+                </div>
+                <div class="card" style="margin-bottom:0;border-left:4px solid #059669;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">✅ Delivered</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="statDelivered">0</div>
+                </div>
+                <div class="card" style="margin-bottom:0;border-left:4px solid #DC2626;padding:20px;">
+                    <div style="font-size:11px;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">❌ Cancelled</div>
+                    <div style="font-size:36px;font-weight:800;color:#1E1B4B;" id="statCancelled">0</div>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="card" style="margin-bottom:20px;">
+                <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+                    <div class="form-group" style="margin:0;flex:2;min-width:200px;">
+                        <label class="form-label">Cari nama / HP / resi</label>
+                        <input type="text" id="crmSearch" class="form-input" placeholder="🔍 Ketik untuk cari..." onkeyup="filterOrders()">
+                    </div>
+                    <div class="form-group" style="margin:0;min-width:140px;">
+                        <label class="form-label">Status</label>
+                        <select id="crmFilter" class="form-select" onchange="filterOrders()">
+                            <option value="all">Semua</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Shipped">Shipped</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;min-width:140px;">
+                        <label class="form-label">CS</label>
+                        <select id="filterCS" class="form-select" onchange="applyFilters()">
+                            <option value="">Semua CS</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;min-width:140px;">
+                        <label class="form-label">Produk</label>
+                        <select id="filterProduk" class="form-select" onchange="applyFilters()">
+                            <option value="">Semua Produk</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;min-width:140px;">
+                        <label class="form-label">Ekspedisi</label>
+                        <select id="filterEkspedisi" class="form-select" onchange="applyFilters()">
+                            <option value="">Semua Ekspedisi</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;min-width:140px;">
+                        <label class="form-label">Tgl Assign</label>
+                        <input type="date" id="filterTanggalAssign" class="form-input" onchange="applyFilters()">
+                    </div>
+                    <div style="display:flex;gap:8px;padding-bottom:1px;">
+                        <button onclick="clearFilters()" class="btn btn-secondary">✖ Reset</button>
+                    </div>
+                </div>
+                <div id="filterInfo" style="margin-top:10px;font-size:12px;color:#8B5CF6;font-weight:600;"></div>
+            </div>
+
+            <!-- Toolbar -->
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+                <button onclick="exportSelectedToCSV()" class="btn btn-primary btn-small">📥 Download CSV</button>
+                <button onclick="selectAllOrders()" class="btn btn-secondary btn-small">☑️ Pilih Semua</button>
+                <button onclick="deselectAllOrders()" class="btn btn-secondary btn-small">☐ Batal Pilih</button>
+                <select id="rowsPerPage" class="form-select" style="width:auto;padding:6px 12px;font-size:12px;" onchange="changeRowsPerPage()">
+                    <option value="20">20 / hal</option>
+                    <option value="50">50 / hal</option>
+                    <option value="100">100 / hal</option>
+                </select>
+                <span id="selectedCount" style="margin-left:auto;color:#8B5CF6;font-size:13px;font-weight:600;">0 dipilih</span>
+            </div>
+
+            <div id="paginationInfo" style="margin-bottom:10px;font-size:12px;color:#94a3b8;"></div>
+
+            <!-- Table -->
+            <div class="card" style="overflow-x:auto;padding:0;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:40px;padding:14px 12px;">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            </th>
+                            <th>Tanggal</th>
+                            <th>Nama</th>
+                            <th>No HP</th>
+                            <th>Produk</th>
+                            <th>Desa</th>
+                            <th>Kecamatan</th>
+                            <th>Kabupaten</th>
+                            <th>Provinsi</th>
+                            <th>Pesanan</th>
+                            <th>Pembayaran</th>
+                            <th>Resi</th>
+                            <th>Status</th>
+                            <th>CS</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crmTbody">
+                        <tr>
+                            <td colspan="15" style="text-align:center;padding:64px;color:#A78BFA;">Memuat data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div id="crmPagination" style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:16px;"></div>
+        </section>
+
+        <!-- ===== PRODUK ===== -->
+        <section id="crmSec-produk" class="admin-section">
+            <div class="section-header">
+                <div class="section-title">Produk</div>
+                <div class="section-sub">Statistik orderan per produk</div>
+            </div>
+            <div id="produkGrid" class="stats-grid">
+                <div class="coming-soon-card" style="grid-column:1/-1;">
+                    <div class="coming-soon-icon">🏷️</div>
+                    <div class="coming-soon-title">Memuat data produk...</div>
+                    <div class="coming-soon-sub">Buka menu Pesanan terlebih dahulu untuk memuat data</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== PELANGGAN LIST ===== -->
+        <section id="crmSec-pelangganList" class="admin-section">
+            <div class="section-header">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                    <div>
+                        <div class="section-title">Pelanggan</div>
+                        <div class="section-sub">Daftar pelanggan unik dari data orderan</div>
+                    </div>
+                    <input type="text" id="pelangganSearch" class="form-input" style="width:260px;" placeholder="🔍 Cari nama / HP..." oninput="renderPelangganList()">
+                </div>
+            </div>
+            <div class="card" style="padding:0;overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nama</th>
+                            <th>No HP</th>
+                            <th>Kabupaten</th>
+                            <th>Provinsi</th>
+                            <th>Total Order</th>
+                            <th>Order Terakhir</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pelangganTbody">
+                        <tr><td colspan="7" style="text-align:center;padding:48px;color:#A78BFA;">Buka menu Pesanan terlebih dahulu</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="pelangganCount" style="margin-top:12px;font-size:12px;color:#94A3B8;text-align:right;"></div>
+        </section>
+
+        <!-- ===== PENGELOMPOKAN ===== -->
+        <section id="crmSec-pengelompokan" class="admin-section">
+            <div class="section-header">
+                <div class="section-title">Pengelompokan</div>
+                <div class="section-sub">Segmentasi & kelompok pelanggan</div>
+            </div>
+            <div class="coming-soon-card">
+                <div class="coming-soon-icon">🗂️</div>
+                <div class="coming-soon-title">Segera Hadir</div>
+                <div class="coming-soon-sub">Fitur pengelompokan pelanggan sedang dalam pengembangan</div>
+            </div>
+        </section>
+
+        <!-- ===== ULANG TAHUN ===== -->
+        <section id="crmSec-ultah" class="admin-section">
+            <div class="section-header">
+                <div class="section-title">Ulang Tahun</div>
+                <div class="section-sub">Pelanggan yang berulang tahun bulan ini</div>
+            </div>
+            <div class="coming-soon-card">
+                <div class="coming-soon-icon">🎂</div>
+                <div class="coming-soon-title">Segera Hadir</div>
+                <div class="coming-soon-sub">Fitur pengingat ulang tahun pelanggan sedang dalam pengembangan</div>
+            </div>
+        </section>
+
+        <!-- ===== KALENDER ===== -->
+        <section id="crmSec-kalender" class="admin-section">
+            <div class="section-header">
+                <div class="section-title">Kalender</div>
+                <div class="section-sub">Jadwal pengiriman pesan</div>
+            </div>
+            <div class="coming-soon-card">
+                <div class="coming-soon-icon">📅</div>
+                <div class="coming-soon-title">Segera Hadir</div>
+                <div class="coming-soon-sub">Fitur kalender pesan sedang dalam pengembangan</div>
+            </div>
+        </section>
+
+        <!-- ===== KIRIM PESAN ===== -->
+        <section id="crmSec-kirimPesanSec" class="admin-section">
+            <div class="section-header">
+                <div class="section-title">Kirim Pesan</div>
+                <div class="section-sub">Broadcast & pesan ke pelanggan</div>
+            </div>
+            <div class="coming-soon-card">
+                <div class="coming-soon-icon">✉️</div>
+                <div class="coming-soon-title">Segera Hadir</div>
+                <div class="coming-soon-sub">Fitur kirim pesan & broadcast sedang dalam pengembangan</div>
+            </div>
+        </section>
+
+        <!-- ===== TASK ===== -->
+        <section id="crmSec-task" class="admin-section">
+            <div class="section-header">
+                <div class="section-title">Task</div>
+                <div class="section-sub">Manajemen tugas & follow-up</div>
+            </div>
+            <div class="coming-soon-card">
+                <div class="coming-soon-icon">✅</div>
+                <div class="coming-soon-title">Segera Hadir</div>
+                <div class="coming-soon-sub">Fitur manajemen task sedang dalam pengembangan</div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal hidden">
+    <div class="modal-content">
+        <div style="font-size:18px;font-weight:800;color:#1E1B4B;margin-bottom:6px;" id="editModalTitle">Edit Order</div>
+        <div style="font-size:12px;color:#8B5CF6;margin-bottom:24px;">Update data orderan</div>
+        <div style="display:grid;gap:14px;margin-bottom:24px;">
+            <div class="form-group" style="margin:0;">
+                <label class="form-label">Resi</label>
+                <input type="text" id="editResi" class="form-input">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label class="form-label">Status</label>
+                <select id="editStatus" class="form-select">
+                    <option>Pending</option>
+                    <option>Processing</option>
+                    <option>Shipped</option>
+                    <option>Delivered</option>
+                    <option>Cancelled</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label class="form-label">Team</label>
+                <input type="text" id="editTeam" class="form-input">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label class="form-label">Update CRM</label>
+                <input type="text" id="editCRM" class="form-input">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label class="form-label">Retur</label>
+                <input type="text" id="editRetur" class="form-input">
             </div>
         </div>
-
-        <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
-            <button onclick="exportSelectedToCSV()" class="btn btn-primary">📥 Download CSV</button>
-            <button onclick="selectAllOrders()" class="btn btn-secondary">☑️ Select All</button>
-            <button onclick="deselectAllOrders()" class="btn btn-secondary">☐ Deselect All</button>
-            <span id="selectedCount" style="margin-left: auto; color: #64748b; font-size: 14px;">0 selected</span>
-            <select id="rowsPerPage" class="form-select" style="width: auto;" onchange="changeRowsPerPage()">
-                <option value="20">20 per halaman</option>
-                <option value="50">50 per halaman</option>
-                <option value="100">100 per halaman</option>
-            </select>
-        </div>
-
-        <div id="paginationInfo" style="margin-bottom: 12px; font-size: 14px; color: #64748b;"></div>
-
-        <div class="card" style="overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
-                        <th>Tanggal</th><th>Nama</th><th>No HP</th>
-                        <th>Produk</th>
-                        <th>Desa</th><th>Kecamatan</th><th>Kabupaten</th><th>Provinsi</th>
-                        <th>Pesanan</th><th>Pembayaran</th><th>RESI</th><th>Status</th>
-                        <th>CS</th><th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="crmTbody">
-                    <tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Loading...</td></tr>
-                </tbody>
-            </table>
+        <div style="display:flex;gap:12px;">
+            <button onclick="updateOrder()" class="btn btn-success" style="flex:1;">💾 Simpan</button>
+            <button onclick="closeEditModal()" class="btn btn-secondary" style="flex:1;">Batal</button>
         </div>
     </div>
+</div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" class="modal hidden">
-        <div class="modal-content">
-            <h2 id="editModalTitle" style="font-size: 20px; margin-bottom: 24px;">Edit Order</h2>
-            <div style="display: grid; gap: 16px; margin-bottom: 24px;">
-                <div class="form-group">
-                    <label class="form-label">Resi</label>
-                    <input type="text" id="editResi" class="form-input">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <select id="editStatus" class="form-select">
-                        <option>Pending</option><option>Processing</option><option>Shipped</option>
-                        <option>Delivered</option><option>Cancelled</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Team</label>
-                    <input type="text" id="editTeam" class="form-input">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Update CRM</label>
-                    <input type="text" id="editCRM" class="form-input">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Retur</label>
-                    <input type="text" id="editRetur" class="form-input">
-                </div>
-            </div>
-            <div style="display: flex; gap: 12px;">
-                <button onclick="updateOrder()" class="btn btn-success" style="flex: 1;">Simpan</button>
-                <button onclick="closeEditModal()" class="btn btn-secondary" style="flex: 1;">Batal</button>
-            </div>
-        </div>
-    </div>
+<script src="js/shared.js"></script>
+<script>
+    const ALL_SECTIONS = ['dashboard','pesanan','produk','pelangganList','pengelompokan','ultah','kalender','kirimPesanSec','task'];
 
-    <script src="js/shared.js"></script>
-    <script>
-        // =====================
-        // CRM FUNCTIONS
-        // =====================
-        async function loadOrders() {
-            if (!assignments[currentUser.username]) {
-                document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Belum ada assignment untuk akun ini.</td></tr>';
-                return;
-            }
+    // =====================
+    // SIDEBAR NAVIGATION
+    // =====================
+    function crmShowSection(name, el) {
+        ALL_SECTIONS.forEach(s => {
+            const sec = document.getElementById('crmSec-' + s);
+            if (sec) sec.classList.remove('sec-active');
+        });
+        document.querySelectorAll('.nav-item, .nav-sub-item').forEach(n => n.classList.remove('nav-active'));
 
-            const assignedData = assignmentDates[currentUser.username] || [];
+        const sec = document.getElementById('crmSec-' + name);
+        if (sec) sec.classList.add('sec-active');
+        if (el) el.classList.add('nav-active');
 
-            if (!assignedData.length) {
-                document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Belum ada assignment untuk akun ini.</td></tr>';
-                return;
-            }
+        // Lazy load section data
+        if (name === 'produk') renderProdukGrid();
+        if (name === 'pelangganList') renderPelangganList();
+        if (name === 'dashboard') renderDashboard();
+    }
 
-            const uniqueCS = [...new Set(assignedData.map(a => a.cs))];
-            const dateRanges = assignedData.map(a => ({ from: a.dateFrom, to: a.dateTo }));
-            const minDate = dateRanges.reduce((min, r) => r.from < min ? r.from : min, dateRanges[0].from);
-            const maxDate = dateRanges.reduce((max, r) => r.to > max ? r.to : max, dateRanges[0].to);
+    function toggleNavGroup(name) {
+        const items = document.getElementById('group-' + name);
+        const arrow = document.getElementById('arrow-' + name);
+        const header = arrow.closest('.nav-group-header');
+        const isHidden = items.classList.contains('hidden');
+        items.classList.toggle('hidden');
+        arrow.classList.toggle('open', isHidden);
+        header.classList.toggle('group-open', isHidden);
+    }
 
-            const dateFromUTC = new Date(minDate + 'T00:00:00+07:00').toISOString();
-            const dateToUTC = new Date(maxDate + 'T23:59:59+07:00').toISOString();
+    // =====================
+    // DASHBOARD
+    // =====================
+    function renderDashboard() {
+        const total     = orders.length;
+        const pending   = orders.filter(o => o.status === 'Pending').length;
+        const delivered = orders.filter(o => o.status === 'Delivered').length;
+        const cancelled = orders.filter(o => o.status === 'Cancelled').length;
 
-            console.log(`🔍 Loading orders for ${uniqueCS.length} CS`);
+        document.getElementById('dashTotal').textContent     = total;
+        document.getElementById('dashPending').textContent   = pending;
+        document.getElementById('dashDelivered').textContent = delivered;
+        document.getElementById('dashCancelled').textContent = cancelled;
 
-            allOrders = [];
-            let page = 0;
-            const pageSize = 1000;
-            let hasMore = true;
+        // Recent 10 orders
+        const recent = [...orders].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
+        const tb = document.getElementById('dashRecentTbody');
 
-            while (hasMore) {
-                const { data } = await sbData
-                    .from('all_orderan')
-                    .select('*')
-                    .ilike('sumber', 'Validasi')
-                    .in('cs', uniqueCS)
-                    .gte('created_at', dateFromUTC)
-                    .lte('created_at', dateToUTC)
-                    .range(page * pageSize, (page + 1) * pageSize - 1);
-
-                if (data && data.length > 0) {
-                    allOrders = allOrders.concat(data);
-                    console.log(`📄 Page ${page + 1}: ${data.length} rows`);
-
-                    if (data.length < pageSize) {
-                        hasMore = false;
-                    } else {
-                        page++;
-                    }
-                } else {
-                    hasMore = false;
-                }
-            }
-
-            const matchingOrders = allOrders.filter(order => {
-                const orderProduk = extractProduk(order.jumlah);
-                if (!orderProduk) return false;
-
-                const orderDate = order.created_at
-                    ? new Date(new Date(order.created_at).getTime() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
-                    : null;
-                if (!orderDate) return false;
-
-                return assignedData.some(assignment => {
-                    return assignment.cs === order.cs &&
-                           assignment.produk === orderProduk &&
-                           orderDate >= assignment.dateFrom &&
-                           orderDate <= assignment.dateTo;
-                });
-            });
-
-            const uniqueOrders = Array.from(
-                new Map(matchingOrders.map(item => [item.id, item])).values()
-            );
-            uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-            orders = uniqueOrders;
-            console.log(`✅ Loaded ${uniqueOrders.length} orders (filtered by CS+Produk+Date)`);
-
-            populateFilterDropdowns(assignedData);
-            applyFilters();
+        if (!recent.length) {
+            tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:#A78BFA;">Belum ada data</td></tr>';
+            return;
         }
 
-        function populateFilterDropdowns(assignedData) {
-            const csSet = new Set(assignedData.map(a => a.cs));
-            const csSelect = document.getElementById('filterCS');
-            csSelect.innerHTML = '<option value="">Semua CS</option>' +
-                Array.from(csSet).sort().map(cs => `<option value="${cs}">${cs}</option>`).join('');
-
-            const produkSet = new Set(assignedData.map(a => a.produk));
-            const produkSelect = document.getElementById('filterProduk');
-            produkSelect.innerHTML = '<option value="">Semua Produk</option>' +
-                Array.from(produkSet).sort().map(p => `<option value="${p}">${p}</option>`).join('');
-
-            const ekspedisiSet = new Set();
-            orders.forEach(order => {
-                const eks = extractEkspedisi(order.pembayaran);
-                if (eks) ekspedisiSet.add(eks);
-            });
-            const ekspedisiSelect = document.getElementById('filterEkspedisi');
-            ekspedisiSelect.innerHTML = '<option value="">Semua Ekspedisi</option>' +
-                Array.from(ekspedisiSet).sort().map(e => `<option value="${e}">${e}</option>`).join('');
-        }
-
-        function applyFilters() {
-            const q = document.getElementById('crmSearch').value.toLowerCase();
-            const statusFilter = document.getElementById('crmFilter').value;
-            const tanggalAssign = document.getElementById('filterTanggalAssign').value;
-            const csFilter = document.getElementById('filterCS').value;
-            const produkFilter = document.getElementById('filterProduk').value;
-            const ekspedisiFilter = document.getElementById('filterEkspedisi').value;
-
-            const assignedData = assignmentDates[currentUser.username] || [];
-
-            filteredOrders = orders.filter(o => {
-                if (q && !(o.nama?.toLowerCase().includes(q) || o.hp?.includes(q) || o.resi?.toLowerCase().includes(q))) {
-                    return false;
-                }
-
-                if (statusFilter !== 'all' && o.status !== statusFilter) {
-                    return false;
-                }
-
-                if (tanggalAssign) {
-                    const orderProduk = extractProduk(o.jumlah);
-                    const hasAssignmentOnDate = assignedData.some(a =>
-                        a.cs === o.cs &&
-                        a.produk === orderProduk &&
-                        a.dateFrom === tanggalAssign
-                    );
-                    if (!hasAssignmentOnDate) return false;
-                }
-
-                if (csFilter && o.cs !== csFilter) {
-                    return false;
-                }
-
-                if (produkFilter) {
-                    const orderProduk = extractProduk(o.jumlah);
-                    if (orderProduk !== produkFilter) return false;
-                }
-
-                if (ekspedisiFilter) {
-                    const orderEkspedisi = extractEkspedisi(o.pembayaran);
-                    if (orderEkspedisi !== ekspedisiFilter) return false;
-                }
-
-                return true;
-            });
-
-            currentPage = 1;
-
-            updateStats();
-            renderTableWithPagination();
-            updateFilterInfo();
-        }
-
-        function clearFilters() {
-            document.getElementById('filterTanggalAssign').value = '';
-            document.getElementById('filterCS').value = '';
-            document.getElementById('filterProduk').value = '';
-            document.getElementById('filterEkspedisi').value = '';
-            document.getElementById('crmSearch').value = '';
-            document.getElementById('crmFilter').value = 'all';
-            applyFilters();
-        }
-
-        function updateFilterInfo() {
-            const activeFilters = [];
-            if (document.getElementById('filterTanggalAssign').value) activeFilters.push('Tanggal');
-            if (document.getElementById('filterCS').value) activeFilters.push('CS');
-            if (document.getElementById('filterProduk').value) activeFilters.push('Produk');
-            if (document.getElementById('filterEkspedisi').value) activeFilters.push('Ekspedisi');
-
-            const info = document.getElementById('filterInfo');
-            if (activeFilters.length) {
-                info.textContent = `Filter aktif: ${activeFilters.join(', ')}`;
-            } else {
-                info.textContent = '';
-            }
-        }
-
-        function changeRowsPerPage() {
-            rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
-            currentPage = 1;
-            renderTableWithPagination();
-        }
-
-        function filterOrders() {
-            applyFilters();
-        }
-
-        function renderTableWithPagination() {
-            const start = (currentPage - 1) * rowsPerPage;
-            const end = start + rowsPerPage;
-            const paginatedOrders = filteredOrders.slice(start, end);
-
-            const total = filteredOrders.length;
-            const showing = Math.min(end, total);
-            document.getElementById('paginationInfo').textContent =
-                `Menampilkan ${total > 0 ? start + 1 : 0}-${showing} dari ${total} orderan`;
-
-            filtered = paginatedOrders;
-            renderTable();
-        }
-
-        function updateStats() {
-            document.getElementById('statTotal').textContent = filteredOrders.length;
-            document.getElementById('statPending').textContent = filteredOrders.filter(o => o.status === 'Pending').length;
-            document.getElementById('statDelivered').textContent = filteredOrders.filter(o => o.status === 'Delivered').length;
-            document.getElementById('statCancelled').textContent = filteredOrders.filter(o => o.status === 'Cancelled').length;
-        }
-
-        function renderTable() {
-            const tb = document.getElementById('crmTbody');
-            if (!filtered.length) {
-                tb.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 48px; color: #94a3b8;">Tidak ada</td></tr>';
-                return;
-            }
-            tb.innerHTML = filtered.map(o => {
-                const date = o.tanggal || o.created_at || '-';
-                const produk = extractProduk(o.jumlah) || '-';
-                const isChecked = selectedOrders.has(o.id);
-
-                return `
+        tb.innerHTML = recent.map(o => {
+            const tgl = o.created_at
+                ? new Date(new Date(o.created_at).getTime() + 7*60*60*1000).toISOString().slice(0,10)
+                : '-';
+            const produk = extractProduk(o.jumlah) || '-';
+            const statusColor = {'Pending':'#F59E0B','Processing':'#7C3AED','Shipped':'#3B82F6','Delivered':'#059669','Cancelled':'#DC2626'}[o.status] || '#94a3b8';
+            return `
                 <tr>
-                    <td><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleOrderSelection(${o.id})"></td>
-                    <td>${date}</td>
-                    <td style="font-weight: 600;">${o.nama || '-'}</td>
-                    <td>${o.hp || '-'}</td>
-                    <td style="font-size: 11px;">${produk}</td>
-                    <td>${o.kelurahan || '-'}</td>
-                    <td>${o.kecamatan || '-'}</td>
-                    <td>${o.kabupaten || '-'}</td>
-                    <td>${o.provinsi || '-'}</td>
-                    <td>${o.pesanan || o['jumlah pesanan'] || '-'}</td>
-                    <td><span class="badge badge-${o.pembayaran === 'COD' ? 'cod' : 'transfer'}">${o.pembayaran || '-'}</span></td>
-                    <td style="font-family: monospace; font-size: 11px;">${o.resi || '-'}</td>
-                    <td><span class="badge badge-${(o.status || 'processing').toLowerCase()}">${o.status || '-'}</span></td>
-                    <td>${o.cs || '-'}</td>
+                    <td style="font-size:12px;color:#6B7280;white-space:nowrap;">${tgl}</td>
+                    <td style="font-weight:600;">${escapeHtml(o.nama || '-')}</td>
+                    <td><span style="background:#EDE9FE;color:#5B21B6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${escapeHtml(produk)}</span></td>
+                    <td><span style="background:${statusColor}20;color:${statusColor};padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${escapeHtml(o.status || '-')}</span></td>
+                    <td style="font-size:12px;color:#6B7280;">${escapeHtml(o.cs || '-')}</td>
+                </tr>`;
+        }).join('');
+    }
+
+    // =====================
+    // PRODUK
+    // =====================
+    function renderProdukGrid() {
+        const grid = document.getElementById('produkGrid');
+        if (!orders.length) {
+            grid.innerHTML = `<div class="coming-soon-card" style="grid-column:1/-1;"><div class="coming-soon-icon">🏷️</div><div class="coming-soon-title">Belum ada data</div><div class="coming-soon-sub">Buka menu Pesanan terlebih dahulu untuk memuat data</div></div>`;
+            return;
+        }
+
+        const produkMap = {};
+        orders.forEach(o => {
+            const p = extractProduk(o.jumlah) || 'Lainnya';
+            if (!produkMap[p]) produkMap[p] = { total:0, pending:0, delivered:0, cancelled:0 };
+            produkMap[p].total++;
+            if (o.status === 'Pending')   produkMap[p].pending++;
+            if (o.status === 'Delivered') produkMap[p].delivered++;
+            if (o.status === 'Cancelled') produkMap[p].cancelled++;
+        });
+
+        const colors = ['#7C3AED','#059669','#D97706','#DC2626','#0EA5E9','#EC4899','#8B5CF6','#10B981'];
+        const entries = Object.entries(produkMap).sort((a,b) => b[1].total - a[1].total);
+
+        grid.innerHTML = entries.map(([name, s], i) => `
+            <div class="stat-card" style="border-left:4px solid ${colors[i % colors.length]};">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                    <span style="font-size:14px;">🏷️</span>
+                    <div style="font-weight:800;color:#1E1B4B;font-size:13px;">${escapeHtml(name)}</div>
+                </div>
+                <div style="display:grid;gap:8px;">
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="font-size:12px;color:#6B7280;">Total</span>
+                        <span style="font-size:14px;font-weight:800;color:${colors[i % colors.length]};">${s.total}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="font-size:12px;color:#6B7280;">Pending</span>
+                        <span style="font-size:12px;font-weight:700;color:#F59E0B;">${s.pending}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="font-size:12px;color:#6B7280;">Delivered</span>
+                        <span style="font-size:12px;font-weight:700;color:#059669;">${s.delivered}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="font-size:12px;color:#6B7280;">Cancelled</span>
+                        <span style="font-size:12px;font-weight:700;color:#DC2626;">${s.cancelled}</span>
+                    </div>
+                    <div style="margin-top:4px;height:4px;background:#F3F0FF;border-radius:4px;">
+                        <div style="height:4px;background:${colors[i % colors.length]};border-radius:4px;width:${Math.round(s.delivered/s.total*100)}%;"></div>
+                    </div>
+                    <div style="font-size:10px;color:#94A3B8;text-align:right;">${Math.round(s.delivered/s.total*100)}% delivered</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // =====================
+    // PELANGGAN
+    // =====================
+    function renderPelangganList() {
+        const q = (document.getElementById('pelangganSearch')?.value || '').toLowerCase();
+        const tb = document.getElementById('pelangganTbody');
+        const countEl = document.getElementById('pelangganCount');
+
+        if (!orders.length) {
+            tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:#A78BFA;">Buka menu Pesanan terlebih dahulu</td></tr>';
+            return;
+        }
+
+        // Build unique customer map by hp
+        const customerMap = {};
+        orders.forEach(o => {
+            const key = o.hp || o.nama || '';
+            if (!key) return;
+            if (!customerMap[key]) {
+                customerMap[key] = {
+                    nama: o.nama || '-',
+                    hp: o.hp || '-',
+                    kabupaten: o.kabupaten || '-',
+                    provinsi: o.provinsi || '-',
+                    orders: [],
+                    lastOrder: o.created_at
+                };
+            }
+            customerMap[key].orders.push(o);
+            if (o.created_at > customerMap[key].lastOrder) customerMap[key].lastOrder = o.created_at;
+        });
+
+        let customers = Object.values(customerMap).sort((a,b) => b.orders.length - a.orders.length);
+
+        if (q) {
+            customers = customers.filter(c =>
+                c.nama.toLowerCase().includes(q) || c.hp.includes(q)
+            );
+        }
+
+        countEl.textContent = `${customers.length} pelanggan unik`;
+
+        if (!customers.length) {
+            tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:#A78BFA;">Tidak ada data</td></tr>';
+            return;
+        }
+
+        tb.innerHTML = customers.map((c, i) => {
+            const lastDate = c.lastOrder
+                ? new Date(new Date(c.lastOrder).getTime() + 7*60*60*1000).toISOString().slice(0,10)
+                : '-';
+            return `
+                <tr>
+                    <td style="color:#94A3B8;font-size:12px;">${i+1}</td>
+                    <td style="font-weight:600;">${escapeHtml(c.nama)}</td>
+                    <td style="font-size:12px;">${escapeHtml(c.hp)}</td>
+                    <td style="font-size:12px;">${escapeHtml(c.kabupaten)}</td>
+                    <td style="font-size:12px;">${escapeHtml(c.provinsi)}</td>
+                    <td><span style="background:#EDE9FE;color:#5B21B6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${c.orders.length} order</span></td>
+                    <td style="font-size:12px;color:#6B7280;">${lastDate}</td>
+                </tr>`;
+        }).join('');
+    }
+
+    // =====================
+    // PESANAN FUNCTIONS
+    // =====================
+    async function loadOrders() {
+        if (!assignments[currentUser.username]) {
+            document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align:center;padding:64px;color:#A78BFA;">Belum ada assignment untuk akun ini.</td></tr>';
+            return;
+        }
+
+        const assignedData = assignmentDates[currentUser.username] || [];
+        if (!assignedData.length) {
+            document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align:center;padding:64px;color:#A78BFA;">Belum ada assignment untuk akun ini.</td></tr>';
+            return;
+        }
+
+        const uniqueCS = [...new Set(assignedData.map(a => a.cs))];
+        const dateRanges = assignedData.map(a => ({ from: a.dateFrom, to: a.dateTo }));
+        const minDate = dateRanges.reduce((min, r) => r.from < min ? r.from : min, dateRanges[0].from);
+        const maxDate = dateRanges.reduce((max, r) => r.to > max ? r.to : max, dateRanges[0].to);
+
+        const dateFromUTC = new Date(minDate + 'T00:00:00+07:00').toISOString();
+        const dateToUTC   = new Date(maxDate + 'T23:59:59+07:00').toISOString();
+
+        document.getElementById('crmTbody').innerHTML = '<tr><td colspan="15" style="text-align:center;padding:64px;color:#A78BFA;">Memuat data...</td></tr>';
+
+        allOrders = [];
+        let page = 0, pageSize = 1000, hasMore = true;
+        while (hasMore) {
+            const { data } = await sbData.from('all_orderan').select('*')
+                .ilike('sumber', 'Validasi')
+                .in('cs', uniqueCS)
+                .gte('created_at', dateFromUTC)
+                .lte('created_at', dateToUTC)
+                .range(page * pageSize, (page + 1) * pageSize - 1);
+            if (data && data.length > 0) {
+                allOrders = allOrders.concat(data);
+                hasMore = data.length === pageSize;
+                page++;
+            } else { hasMore = false; }
+        }
+
+        const matchingOrders = allOrders.filter(order => {
+            const orderProduk = extractProduk(order.jumlah);
+            if (!orderProduk) return false;
+            const orderDate = order.created_at
+                ? new Date(new Date(order.created_at).getTime() + 7*60*60*1000).toISOString().split('T')[0]
+                : null;
+            if (!orderDate) return false;
+            return assignedData.some(a =>
+                a.cs === order.cs && a.produk === orderProduk &&
+                orderDate >= a.dateFrom && orderDate <= a.dateTo
+            );
+        });
+
+        const uniqueOrders = Array.from(new Map(matchingOrders.map(i => [i.id, i])).values());
+        uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        orders = uniqueOrders;
+        populateFilterDropdowns(assignedData);
+        applyFilters();
+        renderDashboard();
+    }
+
+    function populateFilterDropdowns(assignedData) {
+        const csSelect = document.getElementById('filterCS');
+        csSelect.innerHTML = '<option value="">Semua CS</option>' +
+            [...new Set(assignedData.map(a => a.cs))].sort().map(cs => `<option value="${cs}">${cs}</option>`).join('');
+
+        const produkSelect = document.getElementById('filterProduk');
+        produkSelect.innerHTML = '<option value="">Semua Produk</option>' +
+            [...new Set(assignedData.map(a => a.produk))].sort().map(p => `<option value="${p}">${p}</option>`).join('');
+
+        const ekspedisiSet = new Set();
+        orders.forEach(o => { const e = extractEkspedisi(o.pembayaran); if (e) ekspedisiSet.add(e); });
+        const ekspedisiSelect = document.getElementById('filterEkspedisi');
+        ekspedisiSelect.innerHTML = '<option value="">Semua Ekspedisi</option>' +
+            [...ekspedisiSet].sort().map(e => `<option value="${e}">${e}</option>`).join('');
+    }
+
+    function applyFilters() {
+        const q              = document.getElementById('crmSearch').value.toLowerCase();
+        const statusFilter   = document.getElementById('crmFilter').value;
+        const tanggalAssign  = document.getElementById('filterTanggalAssign').value;
+        const csFilter       = document.getElementById('filterCS').value;
+        const produkFilter   = document.getElementById('filterProduk').value;
+        const ekspedisiFilter= document.getElementById('filterEkspedisi').value;
+        const assignedData   = assignmentDates[currentUser.username] || [];
+
+        filteredOrders = orders.filter(o => {
+            if (q && !(o.nama?.toLowerCase().includes(q) || o.hp?.includes(q) || o.resi?.toLowerCase().includes(q))) return false;
+            if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+            if (tanggalAssign) {
+                const orderProduk = extractProduk(o.jumlah);
+                if (!assignedData.some(a => a.cs === o.cs && a.produk === orderProduk && a.dateFrom === tanggalAssign)) return false;
+            }
+            if (csFilter && o.cs !== csFilter) return false;
+            if (produkFilter && extractProduk(o.jumlah) !== produkFilter) return false;
+            if (ekspedisiFilter && extractEkspedisi(o.pembayaran) !== ekspedisiFilter) return false;
+            return true;
+        });
+
+        currentPage = 1;
+        updateStats();
+        renderTableWithPagination();
+        updateFilterInfo();
+    }
+
+    function clearFilters() {
+        document.getElementById('filterTanggalAssign').value = '';
+        document.getElementById('filterCS').value = '';
+        document.getElementById('filterProduk').value = '';
+        document.getElementById('filterEkspedisi').value = '';
+        document.getElementById('crmSearch').value = '';
+        document.getElementById('crmFilter').value = 'all';
+        applyFilters();
+    }
+
+    function updateFilterInfo() {
+        const active = [];
+        if (document.getElementById('filterTanggalAssign').value) active.push('Tanggal');
+        if (document.getElementById('filterCS').value) active.push('CS');
+        if (document.getElementById('filterProduk').value) active.push('Produk');
+        if (document.getElementById('filterEkspedisi').value) active.push('Ekspedisi');
+        document.getElementById('filterInfo').textContent = active.length ? `Filter aktif: ${active.join(', ')}` : '';
+    }
+
+    function filterOrders() { applyFilters(); }
+
+    function changeRowsPerPage() {
+        rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
+        currentPage = 1;
+        renderTableWithPagination();
+    }
+
+    function renderTableWithPagination() {
+        const total = filteredOrders.length;
+        const totalPages = Math.ceil(total / rowsPerPage);
+        const start = (currentPage - 1) * rowsPerPage;
+        const paginatedOrders = filteredOrders.slice(start, start + rowsPerPage);
+
+        document.getElementById('paginationInfo').textContent =
+            `Menampilkan ${total > 0 ? start+1 : 0}–${Math.min(start+rowsPerPage, total)} dari ${total} orderan`;
+
+        filtered = paginatedOrders;
+        renderTable();
+
+        const pgEl = document.getElementById('crmPagination');
+        if (totalPages > 1) {
+            pgEl.innerHTML = `
+                <button onclick="crmGoPage(${currentPage-1})" class="btn btn-secondary btn-small" ${currentPage===1?'disabled':''}>‹ Prev</button>
+                <span style="font-size:13px;color:#6B7280;">Hal ${currentPage} / ${totalPages}</span>
+                <button onclick="crmGoPage(${currentPage+1})" class="btn btn-secondary btn-small" ${currentPage===totalPages?'disabled':''}>Next ›</button>`;
+        } else {
+            pgEl.innerHTML = '';
+        }
+    }
+
+    function crmGoPage(pg) {
+        const totalPages = Math.ceil(filteredOrders.length / rowsPerPage);
+        if (pg < 1 || pg > totalPages) return;
+        currentPage = pg;
+        renderTableWithPagination();
+    }
+
+    function updateStats() {
+        document.getElementById('statTotal').textContent     = filteredOrders.length;
+        document.getElementById('statPending').textContent   = filteredOrders.filter(o => o.status === 'Pending').length;
+        document.getElementById('statDelivered').textContent = filteredOrders.filter(o => o.status === 'Delivered').length;
+        document.getElementById('statCancelled').textContent = filteredOrders.filter(o => o.status === 'Cancelled').length;
+    }
+
+    function renderTable() {
+        const tb = document.getElementById('crmTbody');
+        if (!filtered.length) {
+            tb.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:64px;color:#A78BFA;">Tidak ada data.</td></tr>';
+            return;
+        }
+        tb.innerHTML = filtered.map(o => {
+            const tgl = o.created_at
+                ? new Date(new Date(o.created_at).getTime() + 7*60*60*1000).toISOString().replace('T',' ').slice(0,10)
+                : (o.tanggal || '-');
+            const produk = extractProduk(o.jumlah) || '-';
+            const isChecked = selectedOrders.has(o.id);
+            const statusColor = {
+                'Pending':'#F59E0B','Processing':'#7C3AED','Shipped':'#3B82F6',
+                'Delivered':'#059669','Cancelled':'#DC2626'
+            }[o.status] || '#94a3b8';
+
+            return `
+                <tr style="${isChecked ? 'background:#F5F3FF;' : ''}">
+                    <td style="padding:10px 12px;">
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleOrderSelection(${o.id})">
+                    </td>
+                    <td style="white-space:nowrap;font-size:12px;color:#6B7280;">${tgl}</td>
+                    <td style="font-weight:600;white-space:nowrap;">${escapeHtml(o.nama || '-')}</td>
+                    <td style="font-size:12px;">${escapeHtml(o.hp || '-')}</td>
+                    <td><span style="background:#EDE9FE;color:#5B21B6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${escapeHtml(produk)}</span></td>
+                    <td style="font-size:12px;">${escapeHtml(o.kelurahan || '-')}</td>
+                    <td style="font-size:12px;">${escapeHtml(o.kecamatan || '-')}</td>
+                    <td style="font-size:12px;">${escapeHtml(o.kabupaten || '-')}</td>
+                    <td style="font-size:12px;">${escapeHtml(o.provinsi || '-')}</td>
+                    <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(o.pesanan || o['jumlah pesanan'] || '')}">${escapeHtml(o.pesanan || o['jumlah pesanan'] || '-')}</td>
+                    <td style="font-size:12px;">${escapeHtml(o.pembayaran || '-')}</td>
+                    <td style="font-size:11px;font-weight:600;">${escapeHtml(o.resi || '-')}</td>
+                    <td><span style="background:${statusColor}20;color:${statusColor};padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${escapeHtml(o.status || '-')}</span></td>
+                    <td style="font-size:12px;">${escapeHtml(o.cs || '-')}</td>
                     <td><button onclick="openEditModal(${o.id})" class="btn btn-primary btn-small">Edit</button></td>
-                </tr>
-                `;
-            }).join('');
-            updateSelectedCount();
-        }
+                </tr>`;
+        }).join('');
+        updateSelectedCount();
+    }
 
-        function toggleOrderSelection(id) {
-            if (selectedOrders.has(id)) {
-                selectedOrders.delete(id);
-            } else {
-                selectedOrders.add(id);
-            }
-            updateSelectedCount();
-        }
+    function toggleOrderSelection(id) {
+        if (selectedOrders.has(id)) selectedOrders.delete(id);
+        else selectedOrders.add(id);
+        updateSelectedCount();
+    }
 
-        function toggleSelectAll() {
-            const checkbox = document.getElementById('selectAllCheckbox');
-            if (checkbox.checked) {
-                filtered.forEach(o => selectedOrders.add(o.id));
-            } else {
-                filtered.forEach(o => selectedOrders.delete(o.id));
-            }
-            renderTable();
-        }
+    function toggleSelectAll() {
+        const cb = document.getElementById('selectAllCheckbox');
+        if (cb.checked) filtered.forEach(o => selectedOrders.add(o.id));
+        else filtered.forEach(o => selectedOrders.delete(o.id));
+        renderTable();
+    }
 
-        function selectAllOrders() {
-            filtered.forEach(o => selectedOrders.add(o.id));
-            document.getElementById('selectAllCheckbox').checked = true;
-            renderTable();
-        }
+    function selectAllOrders() {
+        filtered.forEach(o => selectedOrders.add(o.id));
+        document.getElementById('selectAllCheckbox').checked = true;
+        renderTable();
+    }
 
-        function deselectAllOrders() {
-            selectedOrders.clear();
-            document.getElementById('selectAllCheckbox').checked = false;
-            renderTable();
-        }
+    function deselectAllOrders() {
+        selectedOrders.clear();
+        document.getElementById('selectAllCheckbox').checked = false;
+        renderTable();
+    }
 
-        function updateSelectedCount() {
-            document.getElementById('selectedCount').textContent = `${selectedOrders.size} selected`;
-        }
+    function updateSelectedCount() {
+        document.getElementById('selectedCount').textContent = `${selectedOrders.size} dipilih`;
+    }
 
-        function exportSelectedToCSV() {
-            const selected = orders.filter(o => selectedOrders.has(o.id));
-            if (!selected.length) {
-                alert('Pilih orderan dulu dengan checklist!');
-                return;
-            }
+    function exportSelectedToCSV() {
+        const selected = orders.filter(o => selectedOrders.has(o.id));
+        if (!selected.length) { alert('Pilih orderan dulu!'); return; }
 
-            const csv = [
-                ['Tanggal', 'Nama', 'No HP', 'Produk', 'Desa', 'Kecamatan', 'Kabupaten', 'Provinsi', 'Pesanan', 'Pembayaran', 'RESI', 'Status', 'CS'].join(','),
-                ...selected.map(o => [
-                    o.tanggal || o.created_at || '',
-                    `"${(o.nama || '').replace(/"/g, '""')}"`,
-                    o.hp || '',
-                    `"${(extractProduk(o.jumlah) || '').replace(/"/g, '""')}"`,
-                    o.kelurahan || '',
-                    o.kecamatan || '',
-                    o.kabupaten || '',
-                    o.provinsi || '',
-                    o.pesanan || o['jumlah pesanan'] || '',
-                    o.pembayaran || '',
-                    o.resi || '',
-                    o.status || '',
-                    o.cs || ''
-                ].join(','))
-            ].join('\n');
+        const csv = [
+            ['Tanggal','Nama','No HP','Produk','Desa','Kecamatan','Kabupaten','Provinsi','Pesanan','Pembayaran','Resi','Status','CS'].join(','),
+            ...selected.map(o => [
+                o.created_at ? new Date(new Date(o.created_at).getTime()+7*60*60*1000).toISOString().slice(0,10) : '',
+                `"${(o.nama||'').replace(/"/g,'""')}"`,
+                o.hp || '',
+                `"${(extractProduk(o.jumlah)||'').replace(/"/g,'""')}"`,
+                o.kelurahan || '', o.kecamatan || '', o.kabupaten || '', o.provinsi || '',
+                `"${(o.pesanan||o['jumlah pesanan']||'').replace(/"/g,'""')}"`,
+                o.pembayaran || '', o.resi || '', o.status || '', o.cs || ''
+            ].join(','))
+        ].join('\n');
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = `orders_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        alert(`✅ ${selected.length} orderan berhasil di-download!`);
+    }
 
-            alert(`✅ ${selected.length} orderan berhasil di-download!`);
-        }
+    function openEditModal(id) {
+        const o = orders.find(x => x.id === id);
+        if (!o) return;
+        editId = id;
+        document.getElementById('editModalTitle').textContent = `Edit — ${o.nama || id}`;
+        document.getElementById('editResi').value   = o.resi   || '';
+        document.getElementById('editStatus').value = o.status || 'Pending';
+        document.getElementById('editTeam').value   = o.team   || '';
+        document.getElementById('editCRM').value    = o.crm    || '';
+        document.getElementById('editRetur').value  = o.retur  || '';
+        document.getElementById('editModal').classList.remove('hidden');
+    }
 
-        function openEditModal(id) {
-            const o = orders.find(x => x.id === id);
-            if (!o) return;
-            editId = id;
-            document.getElementById('editModalTitle').textContent = `Edit - ${o.nama}`;
-            document.getElementById('editResi').value = o.resi || '';
-            document.getElementById('editStatus').value = o.status || 'Pending';
-            document.getElementById('editTeam').value = o.team || '';
-            document.getElementById('editCRM').value = o.crm || '';
-            document.getElementById('editRetur').value = o.retur || '';
-            document.getElementById('editModal').classList.remove('hidden');
-        }
+    function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
 
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-        }
-
-        async function updateOrder() {
-            const updates = {
-                resi: document.getElementById('editResi').value,
-                status: document.getElementById('editStatus').value,
-                team: document.getElementById('editTeam').value,
-                crm: document.getElementById('editCRM').value,
-                retur: document.getElementById('editRetur').value
-            };
-            await sbData.from('all_orderan').update(updates).eq('id', editId);
-            await loadOrders();
-            closeEditModal();
-            alert('✅ Updated!');
-        }
-
-        // =====================
-        // WINDOW ONLOAD
-        // =====================
-        window.onload = async function() {
-            await initSupabase();
-
-            const stored = sessionStorage.getItem('user');
-            if (!stored) {
-                window.location.href = 'index.html';
-                return;
-            }
-
-            currentUser = JSON.parse(stored);
-
-            if (currentUser.role !== 'crm') {
-                window.location.href = 'index.html';
-                return;
-            }
-
-            document.getElementById('crmUsername').textContent = currentUser.username;
-            document.getElementById('crmTitle').textContent = currentUser.username.toUpperCase();
-
-            await loadAssignments();
-            await loadOrders();
+    async function updateOrder() {
+        const updates = {
+            resi:   document.getElementById('editResi').value,
+            status: document.getElementById('editStatus').value,
+            team:   document.getElementById('editTeam').value,
+            crm:    document.getElementById('editCRM').value,
+            retur:  document.getElementById('editRetur').value
         };
-    </script>
+        const { error } = await sbData.from('all_orderan').update(updates).eq('id', editId);
+        if (error) { alert('Gagal update: ' + error.message); return; }
+        await loadOrders();
+        closeEditModal();
+        alert('✅ Berhasil diupdate!');
+    }
+
+    // =====================
+    // WINDOW ONLOAD
+    // =====================
+    window.onload = async function() {
+        await initSupabase();
+
+        const stored = sessionStorage.getItem('user');
+        if (!stored) { window.location.href = 'index.html'; return; }
+
+        currentUser = JSON.parse(stored);
+        if (currentUser.role !== 'crm') { window.location.href = 'index.html'; return; }
+
+        document.getElementById('crmUsername').textContent = currentUser.username;
+        document.getElementById('dashGreeting').textContent = `Halo, ${currentUser.username}!`;
+
+        await loadAssignments();
+        await loadOrders();
+    };
+</script>
 </body>
 </html>
