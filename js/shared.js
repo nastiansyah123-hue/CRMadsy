@@ -307,8 +307,40 @@ function drpClickDay(dateStr) {
 function drpHoverDay(dateStr) {
     if (drp.selecting) {
         drp.hoverDate = new Date(dateStr + 'T00:00:00');
-        drpRender();
+        drpUpdateClasses();
     }
+}
+
+// Update hanya CSS class + footer label tanpa re-render seluruh HTML
+function drpUpdateClasses() {
+    const c = document.getElementById('drpContainer');
+    if (!c) return;
+    const today = drpToday();
+    const rangeEnd = drp.endDate || (drp.selecting ? drp.hoverDate : null);
+
+    c.querySelectorAll('.drp-day[data-date]').forEach(el => {
+        const s    = el.dataset.date;
+        const date = new Date(s + 'T00:00:00');
+        let cls    = 'drp-day';
+        if (s === drpToStr(today)) cls += ' drp-today';
+
+        if (drp.startDate && rangeEnd) {
+            const lo  = drp.startDate <= rangeEnd ? drp.startDate : rangeEnd;
+            const hi  = drp.startDate <= rangeEnd ? rangeEnd : drp.startDate;
+            const sLo = drpToStr(lo), sHi = drpToStr(hi);
+            if (s === sLo && s === sHi) cls += ' drp-sel';
+            else if (s === sLo)         cls += ' drp-range-start';
+            else if (s === sHi)         cls += ' drp-range-end';
+            else if (date > lo && date < hi) cls += ' drp-in-range';
+        } else if (drp.startDate && s === drpToStr(drp.startDate)) {
+            cls += ' drp-sel';
+        }
+        el.className = cls;
+    });
+
+    // Update label di footer
+    const disp = document.getElementById('drpDateDisplay');
+    if (disp) disp.innerHTML = `${drpFmt(drp.startDate)} &nbsp;–&nbsp; ${drpFmt(rangeEnd)}`;
 }
 
 function drpNavMonth(dir) {
@@ -439,7 +471,7 @@ function drpRender() {
             </div>
             <div class="drp-footer">
                 <div>
-                    <div style="font-size:13px;font-weight:700;color:#334155;">
+                    <div id="drpDateDisplay" style="font-size:13px;font-weight:700;color:#334155;">
                         ${startLbl} &nbsp;–&nbsp; ${endLbl}
                     </div>
                     <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Tanggal ditampilkan dalam Waktu Jakarta</div>
@@ -476,7 +508,7 @@ function drpRender() {
         el.addEventListener('mouseenter', () => {
             if (drp.selecting) {
                 drp.hoverDate = new Date(el.dataset.date + 'T00:00:00');
-                drpRender();
+                drpUpdateClasses(); // hanya update class, TIDAK re-render HTML
             }
         });
     });
