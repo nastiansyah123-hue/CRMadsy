@@ -484,9 +484,12 @@
                 </div>
 
                 <!-- Date pill -->
-                <div class="crm-date-pill" id="dashDatePill">
-                    📅 <span id="dashDateLabel">—</span>
-                </div>
+                <button class="crm-date-pill" onclick="toggleDatePicker(this)">
+                    📅 <span id="datePickerLabel">Semua Tanggal</span> ▼
+                </button>
+                <!-- hidden inputs required oleh shared.js drpApplyToInputs -->
+                <input type="hidden" id="adminDateFrom">
+                <input type="hidden" id="adminDateTo">
 
                 <!-- Stats -->
                 <div class="crm-stats-row">
@@ -890,13 +893,37 @@
         arrow.classList.toggle('open', isHidden);
     }
 
+    // Format tanggal: "2024-01-10" → "10 Januari 2024"
+    const IDN_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    function fmtTanggal(str) {
+        if (!str) return '—';
+        const d = new Date(str + 'T00:00:00');
+        if (isNaN(d)) return str;
+        return `${d.getDate()} ${IDN_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function fmtTanggalShort(str) {
+        if (!str) return '—';
+        const d = new Date(str + 'T00:00:00');
+        if (isNaN(d)) return str;
+        const s = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        return `${d.getDate()} ${s[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
     // ── DASHBOARD ──
     function renderDashboard() {
-        const total     = orders.length;
-        const pending   = orders.filter(o => o.status === 'Pending').length;
-        const delivered = orders.filter(o => o.status === 'Delivered').length;
-        const cancelled = orders.filter(o => o.status === 'Cancelled').length;
-        const uniqueCustomers = new Set(orders.map(o => o.hp || o.nama).filter(Boolean)).size;
+        // Filter by date picker jika diset
+        const from = document.getElementById('adminDateFrom')?.value;
+        const to   = document.getElementById('adminDateTo')?.value;
+        const display = (from && to) ? orders.filter(o => {
+            const d = o.created_at ? new Date(new Date(o.created_at).getTime()+7*3600*1000).toISOString().slice(0,10) : null;
+            return d && d >= from && d <= to;
+        }) : orders;
+
+        const total     = display.length;
+        const pending   = display.filter(o => o.status === 'Pending').length;
+        const delivered = display.filter(o => o.status === 'Delivered').length;
+        const cancelled = display.filter(o => o.status === 'Cancelled').length;
+        const uniqueCustomers = new Set(display.map(o => o.hp || o.nama).filter(Boolean)).size;
 
         document.getElementById('dashTotal').textContent       = total;
         document.getElementById('dashPendingInfo').textContent = `${pending} pending`;
@@ -906,28 +933,20 @@
         document.getElementById('dashCancelledPct').textContent= total ? `${Math.round(cancelled/total*100)}% dari total` : '0%';
         document.getElementById('dashPelanggan').textContent   = uniqueCustomers;
 
-        // Date label
-        const assignedData = assignmentDates[currentUser.username] || [];
-        if (assignedData.length) {
-            const dates = assignedData.map(a => a.dateFrom).concat(assignedData.map(a => a.dateTo));
-            const min = dates.reduce((a,b) => a < b ? a : b);
-            const max = dates.reduce((a,b) => a > b ? a : b);
-            document.getElementById('dashDateLabel').textContent = min === max ? min : `${min} / ${max}`;
-        }
-
         // Recent 10
-        const recent = [...orders].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0,10);
+        const recent = [...display].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0,10);
         const tb = document.getElementById('dashRecentTbody');
         if (!recent.length) {
             tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:#9CA3AF;">Belum ada data</td></tr>';
             return;
         }
         tb.innerHTML = recent.map(o => {
-            const tgl    = o.created_at ? new Date(new Date(o.created_at).getTime() + 7*3600*1000).toISOString().slice(0,10) : '-';
+            const tglRaw = o.created_at ? new Date(new Date(o.created_at).getTime() + 7*3600*1000).toISOString().slice(0,10) : null;
+            const tgl    = tglRaw ? fmtTanggalShort(tglRaw) : '-';
             const produk = extractProduk(o.jumlah) || '-';
             const sc     = {'Pending':'#F59E0B','Processing':'#7C3AED','Shipped':'#3B82F6','Delivered':'#10B981','Cancelled':'#EF4444'}[o.status] || '#9CA3AF';
             return `<tr>
-                <td style="font-size:12px;color:#9CA3AF;">${tgl}</td>
+                <td style="font-size:12px;color:#9CA3AF;white-space:nowrap;">${tgl}</td>
                 <td style="font-weight:600;">${escapeHtml(o.nama||'-')}</td>
                 <td><span class="crm-badge" style="background:#EEF2FF;color:#4F46E5;">${escapeHtml(produk)}</span></td>
                 <td><span class="crm-badge" style="background:${sc}20;color:${sc};">${escapeHtml(o.status||'-')}</span></td>
@@ -1430,7 +1449,8 @@
             return;
         }
         tb.innerHTML = filtered.map(o => {
-            const tgl    = o.created_at ? new Date(new Date(o.created_at).getTime()+7*3600*1000).toISOString().slice(0,10) : '-';
+            const tglRaw = o.created_at ? new Date(new Date(o.created_at).getTime()+7*3600*1000).toISOString().slice(0,10) : null;
+            const tgl    = tglRaw ? fmtTanggalShort(tglRaw) : '-';
             const produk = extractProduk(o.jumlah) || '-';
             const sc     = {'Pending':'#F59E0B','Processing':'#7C3AED','Shipped':'#3B82F6','Delivered':'#10B981','Cancelled':'#EF4444'}[o.status]||'#9CA3AF';
             const checked = selectedOrders.has(o.id);
@@ -1506,6 +1526,9 @@
         closeEditModal();
         alert('✅ Berhasil diupdate!');
     }
+
+    // Refresh dashboard setiap kali date range picker di-apply
+    document.addEventListener('dateRangeApplied', () => renderDashboard());
 
     // ── INIT ──
     window.onload = async function() {
