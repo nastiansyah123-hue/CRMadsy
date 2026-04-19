@@ -459,6 +459,9 @@
                 </div>
             </div>
             <div class="crm-topbar-right">
+                <button onclick="syncAll()" id="syncBtn" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;">
+                    🔄 <span id="syncBtnLabel">Sync Data</span>
+                </button>
                 <span class="crm-topbar-username" id="crmTopUsername"></span>
                 <span class="crm-topbar-icon" style="color:rgba(255,255,255,0.85);">👤</span>
             </div>
@@ -880,8 +883,7 @@
         if (el) el.classList.add('crm-active');
 
         if (name === 'produk') renderProdukGrid();
-        if (name === 'pelangganList' && !crmCustomers.length) loadPelanggan();
-        else if (name === 'pelangganList') renderPelangganTable();
+        if (name === 'pelangganList') loadPelanggan();
         if (name === 'dashboard') renderDashboard();
     }
 
@@ -1527,6 +1529,23 @@
         alert('✅ Berhasil diupdate!');
     }
 
+    // Sync ulang semua data dari server (assignment + orders + pelanggan)
+    async function syncAll() {
+        const btn   = document.getElementById('syncBtn');
+        const label = document.getElementById('syncBtnLabel');
+        btn.disabled = true;
+        label.textContent = 'Memuat...';
+        try {
+            await loadAssignments();   // refresh assignment terbaru dari admin
+            await loadOrders();        // reload orders pakai assignment baru
+            crmCustomers = [];         // reset cache pelanggan supaya reload fresh
+            renderDashboard();
+        } finally {
+            btn.disabled = false;
+            label.textContent = 'Sync Data';
+        }
+    }
+
     // Refresh dashboard setiap kali date range picker di-apply
     document.addEventListener('dateRangeApplied', () => renderDashboard());
 
@@ -1543,6 +1562,14 @@
 
         await loadAssignments();
         await loadOrders();
+
+        // Auto-refresh setiap 2 menit di background
+        setInterval(syncAll, 2 * 60 * 1000);
+
+        // Refresh juga saat user kembali ke tab ini
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') syncAll();
+        });
     };
 </script>
 </body>
