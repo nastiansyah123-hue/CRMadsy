@@ -222,6 +222,20 @@
     <script src="js/shared.js"></script>
     <script>
         // =====================
+        // HELPER: fetch semua baris tanpa batas
+        // =====================
+        async function fetchAll(buildQuery) {
+            let all = [], pg = 0, more = true;
+            while (more) {
+                const { data, error } = await buildQuery(pg * 1000, (pg + 1) * 1000 - 1);
+                if (error) return { data: all, error };
+                if (data && data.length > 0) { all = all.concat(data); more = data.length === 1000; pg++; }
+                else more = false;
+            }
+            return { data: all, error: null };
+        }
+
+        // =====================
         // ADMIN SIDEBAR NAV
         // =====================
         function adminShowSection(section) {
@@ -259,13 +273,11 @@
             const dateFromUTC = new Date(thirtyDaysAgo.toISOString().split('T')[0] + 'T00:00:00+07:00').toISOString();
             const dateToUTC = new Date(todayWIB.toISOString().split('T')[0] + 'T23:59:59+07:00').toISOString();
 
-            const { data, error: dashErr } = await sbData
-                .from('all_orderan')
-                .select('cs, jumlah, created_at')
-                .ilike('sumber', 'Validasi')
-                .gte('created_at', dateFromUTC)
-                .lte('created_at', dateToUTC)
-                .limit(10000);
+            const { data, error: dashErr } = await fetchAll((from, to) =>
+                sbData.from('all_orderan').select('cs, jumlah, created_at')
+                    .ilike('sumber', 'Validasi')
+                    .gte('created_at', dateFromUTC).lte('created_at', dateToUTC)
+                    .range(from, to));
             if (dashErr) { alertEl.innerHTML = ''; return; }
 
             const unassignedByDate = {};
@@ -412,11 +424,9 @@
             const uniqueCSNames = [...new Set(data.map(a => a.cs_name))];
             const csTeamLocal = {};
             if (uniqueCSNames.length > 0) {
-                const { data: teamData } = await sbData.from('all_orderan')
-                    .select('cs, team')
-                    .in('cs', uniqueCSNames)
-                    .not('team', 'is', null)
-                    .limit(10000);
+                const { data: teamData } = await fetchAll((from, to) =>
+                    sbData.from('all_orderan').select('cs, team')
+                        .in('cs', uniqueCSNames).not('team', 'is', null).range(from, to));
                 (teamData || []).forEach(row => {
                     if (row.cs && row.team && !csTeamLocal[row.cs]) csTeamLocal[row.cs] = row.team;
                 });
@@ -536,13 +546,11 @@
                 const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
                 const dateToUTC   = new Date(dateTo   + 'T23:59:59+07:00').toISOString();
 
-                const { data: rawData, error } = await sbData
-                    .from('all_orderan')
-                    .select('cs, jumlah, team')
-                    .ilike('sumber', 'Validasi')
-                    .gte('created_at', dateFromUTC)
-                    .lte('created_at', dateToUTC)
-                    .limit(10000);
+                const { data: rawData, error } = await fetchAll((from, to) =>
+                    sbData.from('all_orderan').select('cs, jumlah, team')
+                        .ilike('sumber', 'Validasi')
+                        .gte('created_at', dateFromUTC).lte('created_at', dateToUTC)
+                        .range(from, to));
                 if (error) throw error;
 
                 if (rawData.length > 0) {
@@ -578,10 +586,8 @@
             if (!confirm('Load semua CS? (Bisa lambat jika data banyak)')) return;
 
             try {
-                const { data: rawData, error } = await sbData
-                    .from('all_orderan')
-                    .select('cs, jumlah, team')
-                    .limit(10000);
+                const { data: rawData, error } = await fetchAll((from, to) =>
+                    sbData.from('all_orderan').select('cs, jumlah, team').range(from, to));
                 if (error) throw error;
 
                 if (rawData.length > 0) {
@@ -778,13 +784,11 @@
             const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
             const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
 
-            const { data: allOrdersData } = await sbData
-                .from('all_orderan')
-                .select('cs, jumlah')
-                .ilike('sumber', 'Validasi')
-                .gte('created_at', dateFromUTC)
-                .lte('created_at', dateToUTC)
-                .limit(10000);
+            const { data: allOrdersData } = await fetchAll((from, to) =>
+                sbData.from('all_orderan').select('cs, jumlah')
+                    .ilike('sumber', 'Validasi')
+                    .gte('created_at', dateFromUTC).lte('created_at', dateToUTC)
+                    .range(from, to));
 
             const { data: assignmentsData } = await sbApp.from('crm_assignments')
                 .select('*')
