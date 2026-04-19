@@ -688,21 +688,63 @@
                         <div class="crm-page-title-icon">👥</div>
                         <h2>Pelanggan</h2>
                     </div>
-                    <input type="text" id="pelangganSearch" class="crm-input" style="width:260px;" placeholder="🔍 Cari nama / HP..." oninput="renderPelangganList()">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button onclick="showUploadModal()" class="crm-btn crm-btn-primary crm-btn-sm">📤 Upload CSV</button>
+                        <button onclick="loadPelanggan()" class="crm-btn crm-btn-secondary crm-btn-sm">🔄 Refresh</button>
+                    </div>
                 </div>
+
+                <!-- Filter bar -->
+                <div class="crm-filters" style="margin-bottom:16px;">
+                    <div class="crm-form-group" style="flex:2;min-width:200px;">
+                        <label class="crm-form-label">Cari</label>
+                        <input type="text" id="pelangganSearch" class="crm-input" placeholder="🔍 Nama / HP..." oninput="renderPelangganTable()">
+                    </div>
+                    <div class="crm-form-group">
+                        <label class="crm-form-label">Status</label>
+                        <select id="pelangganTypeFilter" class="crm-select" onchange="renderPelangganTable()">
+                            <option value="">Semua</option>
+                            <option value="Aktif">🟢 Aktif</option>
+                            <option value="Pasif">🟡 Pasif</option>
+                            <option value="Jenuh">🟠 Jenuh</option>
+                        </select>
+                    </div>
+                    <div class="crm-form-group">
+                        <label class="crm-form-label">CS</label>
+                        <select id="pelangganCSFilter" class="crm-select" onchange="renderPelangganTable()">
+                            <option value="">Semua CS</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;">
+                        <button onclick="resetPelangganFilter()" class="crm-btn crm-btn-secondary">✖ Reset</button>
+                    </div>
+                </div>
+
+                <div id="pelangganCount" style="margin-bottom:10px;font-size:12px;color:#9CA3AF;"></div>
+
                 <div class="crm-table-wrap">
                     <table class="crm-table">
                         <thead>
                             <tr>
-                                <th>#</th><th>Nama</th><th>No HP</th><th>Kabupaten</th><th>Provinsi</th><th>Total Order</th><th>Order Terakhir</th>
+                                <th>#</th>
+                                <th>Nama</th>
+                                <th>No HP</th>
+                                <th>Kab/Kota</th>
+                                <th>Penyakit</th>
+                                <th>Status</th>
+                                <th>Interaksi</th>
+                                <th>Last FU</th>
+                                <th>Tgl Lahir</th>
+                                <th>CS</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="pelangganTbody">
-                            <tr><td colspan="7" style="text-align:center;padding:48px;color:#9CA3AF;">Buka Pesanan terlebih dahulu</td></tr>
+                            <tr><td colspan="11" style="text-align:center;padding:48px;color:#9CA3AF;">Klik Refresh untuk memuat data</td></tr>
                         </tbody>
                     </table>
                 </div>
-                <div id="pelangganCount" style="margin-top:10px;font-size:12px;color:#9CA3AF;text-align:right;"></div>
+                <div class="crm-pagination" id="pelangganPagination"></div>
             </section>
 
             <!-- ═══ PENGELOMPOKAN ═══ -->
@@ -788,6 +830,36 @@
     </div>
 </div>
 
+<!-- ═══ UPLOAD MODAL ═══ -->
+<div id="uploadModal" class="crm-modal hidden">
+    <div class="crm-modal-box">
+        <div class="crm-modal-title">📤 Upload Data Pelanggan</div>
+        <div class="crm-modal-sub">Upload file CSV dari spreadsheet — data akan ditambahkan ke tabel pelanggan</div>
+
+        <div style="background:#F9FAFB;border:2px dashed #E5E7EB;border-radius:12px;padding:28px;text-align:center;margin-bottom:20px;">
+            <div style="font-size:32px;margin-bottom:8px;">📂</div>
+            <div style="font-size:13px;color:#6B7280;margin-bottom:12px;">Pilih file CSV dari komputer kamu</div>
+            <input type="file" id="uploadFileInput" accept=".csv" style="display:none;" onchange="document.getElementById('uploadFileName').textContent = this.files[0]?.name || ''">
+            <button onclick="document.getElementById('uploadFileInput').click()" class="crm-btn crm-btn-secondary">Pilih File CSV</button>
+            <div id="uploadFileName" style="margin-top:8px;font-size:12px;color:#4F46E5;font-weight:600;"></div>
+        </div>
+
+        <div style="background:#EEF2FF;border-radius:10px;padding:14px;margin-bottom:20px;font-size:12px;color:#4F46E5;line-height:1.8;">
+            <strong>Tips sebelum upload:</strong><br>
+            • Buka file di Google Sheets<br>
+            • Edit → Find & Replace → ganti <code>#N/A</code>, <code>#REF!</code>, <code>#VALUE!</code> dengan kosong<br>
+            • File → Download → CSV
+        </div>
+
+        <div id="uploadStatus" style="margin-bottom:16px;font-size:13px;min-height:20px;"></div>
+
+        <div style="display:flex;gap:12px;">
+            <button onclick="processUpload()" class="crm-btn crm-btn-primary" style="flex:1;justify-content:center;">⬆️ Upload</button>
+            <button onclick="closeUploadModal()" class="crm-btn crm-btn-secondary" style="flex:1;justify-content:center;">Batal</button>
+        </div>
+    </div>
+</div>
+
 <script src="js/shared.js"></script>
 <script>
     const CRM_SECTIONS = ['dashboard','pesanan','produk','pelangganList','pengelompokan','segmentasi','grup','ultah','kalender','kirimPesan','task'];
@@ -805,7 +877,8 @@
         if (el) el.classList.add('crm-active');
 
         if (name === 'produk') renderProdukGrid();
-        if (name === 'pelangganList') renderPelangganList();
+        if (name === 'pelangganList' && !crmCustomers.length) loadPelanggan();
+        else if (name === 'pelangganList') renderPelangganTable();
         if (name === 'dashboard') renderDashboard();
     }
 
@@ -897,39 +970,319 @@
     }
 
     // ── PELANGGAN ──
-    function renderPelangganList() {
-        const q  = (document.getElementById('pelangganSearch')?.value || '').toLowerCase();
+    // ── PELANGGAN ──
+    let crmCustomers = [];
+    let filteredCustomers = [];
+    let pelangganPage = 1;
+    const pelangganPageSize = 50;
+
+    async function loadPelanggan() {
         const tb = document.getElementById('pelangganTbody');
-        if (!orders.length) {
-            tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:#9CA3AF;">Buka Pesanan terlebih dahulu</td></tr>';
+        tb.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:48px;color:#9CA3AF;">Memuat data...</td></tr>';
+
+        const assignedCS = assignments[currentUser.username] || [];
+        if (!assignedCS.length) {
+            tb.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:48px;color:#9CA3AF;">Belum ada assignment CS</td></tr>';
             return;
         }
-        const cm = {};
-        orders.forEach(o => {
-            const key = o.hp || o.nama || ''; if (!key) return;
-            if (!cm[key]) cm[key] = { nama: o.nama||'-', hp: o.hp||'-', kabupaten: o.kabupaten||'-', provinsi: o.provinsi||'-', orders:[], last: o.created_at };
-            cm[key].orders.push(o);
-            if (o.created_at > cm[key].last) cm[key].last = o.created_at;
+
+        let all = [], pg = 0, more = true;
+        while (more) {
+            const { data, error } = await sbApp.from('crm_customers')
+                .select('*')
+                .in('nama_cs', assignedCS)
+                .range(pg * 1000, (pg + 1) * 1000 - 1);
+            if (error) { tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:48px;color:#EF4444;">${error.message}</td></tr>`; return; }
+            if (data && data.length > 0) { all = all.concat(data); more = data.length === 1000; pg++; }
+            else more = false;
+        }
+
+        crmCustomers = all;
+
+        // populate CS filter
+        const csSet = [...new Set(all.map(c => c.nama_cs).filter(Boolean))].sort();
+        document.getElementById('pelangganCSFilter').innerHTML =
+            '<option value="">Semua CS</option>' + csSet.map(c => `<option value="${c}">${c}</option>`).join('');
+
+        renderPelangganTable();
+    }
+
+    function renderPelangganTable() {
+        const q    = (document.getElementById('pelangganSearch')?.value || '').toLowerCase();
+        const type = document.getElementById('pelangganTypeFilter')?.value || '';
+        const cs   = document.getElementById('pelangganCSFilter')?.value || '';
+
+        filteredCustomers = crmCustomers.filter(c => {
+            if (q && !(c.nama?.toLowerCase().includes(q) || c.no_hp?.includes(q))) return false;
+            if (type && !(c.type || '').includes(type)) return false;
+            if (cs   && c.nama_cs !== cs) return false;
+            return true;
         });
-        let customers = Object.values(cm).sort((a,b) => b.orders.length - a.orders.length);
-        if (q) customers = customers.filter(c => c.nama.toLowerCase().includes(q) || c.hp.includes(q));
-        document.getElementById('pelangganCount').textContent = `${customers.length} pelanggan unik`;
-        if (!customers.length) {
-            tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:#9CA3AF;">Tidak ada data</td></tr>';
+
+        pelangganPage = 1;
+        document.getElementById('pelangganCount').textContent = `${filteredCustomers.length} pelanggan`;
+        renderPelangganPage();
+    }
+
+    function renderPelangganPage() {
+        const tb = document.getElementById('pelangganTbody');
+        const total = filteredCustomers.length;
+        const totalPages = Math.ceil(total / pelangganPageSize);
+        const start = (pelangganPage - 1) * pelangganPageSize;
+        const slice = filteredCustomers.slice(start, start + pelangganPageSize);
+
+        if (!slice.length) {
+            tb.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:48px;color:#9CA3AF;">Tidak ada data</td></tr>';
+            document.getElementById('pelangganPagination').innerHTML = '';
             return;
         }
-        tb.innerHTML = customers.map((c,i) => {
-            const lastDate = c.last ? new Date(new Date(c.last).getTime()+7*3600*1000).toISOString().slice(0,10) : '-';
+
+        const typeColor = { 'Aktif':'#10B981', 'Pasif':'#F59E0B', 'Jenuh':'#EF4444' };
+        const typeEmoji = { 'Aktif':'🟢', 'Pasif':'🟡', 'Jenuh':'🟠' };
+
+        tb.innerHTML = slice.map((c, i) => {
+            const typeKey = Object.keys(typeEmoji).find(k => (c.type||'').includes(k)) || '';
+            const tc = typeColor[typeKey] || '#9CA3AF';
+            const interaksiColor = {
+                'RESPON BAIK':'#10B981', 'READ':'#F59E0B',
+                'CENTANG 2':'#6366F1', 'NO RESPON':'#EF4444'
+            }[c.interaksi_terakhir] || '#9CA3AF';
+
             return `<tr>
-                <td style="color:#9CA3AF;font-size:12px;">${i+1}</td>
-                <td style="font-weight:600;">${escapeHtml(c.nama)}</td>
-                <td style="font-size:12px;">${escapeHtml(c.hp)}</td>
-                <td style="font-size:12px;">${escapeHtml(c.kabupaten)}</td>
-                <td style="font-size:12px;">${escapeHtml(c.provinsi)}</td>
-                <td><span class="crm-badge" style="background:#EEF2FF;color:#4F46E5;">${c.orders.length} order</span></td>
-                <td style="font-size:12px;color:#6B7280;">${lastDate}</td>
+                <td style="color:#9CA3AF;font-size:12px;">${start + i + 1}</td>
+                <td style="font-weight:600;white-space:nowrap;">${escapeHtml(c.nama||'-')}</td>
+                <td style="font-size:12px;">${escapeHtml(c.no_hp||'-')}</td>
+                <td style="font-size:12px;">${escapeHtml(c.kab||'-')}</td>
+                <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(c.penyakit||'')}">${escapeHtml(c.penyakit||'-')}</td>
+                <td>${typeKey ? `<span class="crm-badge" style="background:${tc}20;color:${tc};">${typeEmoji[typeKey]} ${typeKey}</span>` : '<span style="color:#9CA3AF;font-size:12px;">—</span>'}</td>
+                <td>${c.interaksi_terakhir ? `<span class="crm-badge" style="background:${interaksiColor}20;color:${interaksiColor};font-size:10px;">${escapeHtml(c.interaksi_terakhir)}</span>` : '<span style="color:#9CA3AF;font-size:12px;">—</span>'}</td>
+                <td style="font-size:12px;white-space:nowrap;color:#6B7280;">${c.last_fu||'—'}</td>
+                <td style="font-size:12px;white-space:nowrap;color:#6B7280;">${c.tgl_lahir||'—'}</td>
+                <td style="font-size:12px;color:#6B7280;">${escapeHtml(c.nama_cs||'-')}</td>
+                <td><button onclick="openPelangganDetail(${c.id})" class="crm-btn crm-btn-secondary crm-btn-sm">Detail</button></td>
             </tr>`;
         }).join('');
+
+        // Pagination
+        const pg = document.getElementById('pelangganPagination');
+        pg.innerHTML = totalPages > 1 ? `
+            <button onclick="pelangganGoPage(${pelangganPage-1})" class="crm-btn crm-btn-secondary crm-btn-sm" ${pelangganPage===1?'disabled':''}>‹ Prev</button>
+            <span style="font-size:13px;color:#6B7280;">Hal ${pelangganPage} / ${totalPages}</span>
+            <button onclick="pelangganGoPage(${pelangganPage+1})" class="crm-btn crm-btn-secondary crm-btn-sm" ${pelangganPage===totalPages?'disabled':''}>Next ›</button>
+        ` : '';
+    }
+
+    function pelangganGoPage(pg) {
+        const total = Math.ceil(filteredCustomers.length / pelangganPageSize);
+        if (pg < 1 || pg > total) return;
+        pelangganPage = pg;
+        renderPelangganPage();
+    }
+
+    function resetPelangganFilter() {
+        document.getElementById('pelangganSearch').value = '';
+        document.getElementById('pelangganTypeFilter').value = '';
+        document.getElementById('pelangganCSFilter').value = '';
+        renderPelangganTable();
+    }
+
+    function openPelangganDetail(id) {
+        const c = crmCustomers.find(x => x.id === id);
+        if (!c) return;
+        const typeEmoji = { 'Aktif':'🟢', 'Pasif':'🟡', 'Jenuh':'🟠' };
+        const typeKey = Object.keys(typeEmoji).find(k => (c.type||'').includes(k)) || '';
+        alert(`👤 ${c.nama}\n📱 ${c.no_hp||'-'}\n📍 ${c.kab||'-'}, ${c.prov||'-'}\n\n🏥 Penyakit: ${c.penyakit||'-'}\n👤 ${c.jenis_kelamin||'-'}, ${c.usia||'-'} thn\n💼 ${c.pekerjaan||'-'}\n🎂 ${c.tgl_lahir||'-'}\n\n${typeKey ? typeEmoji[typeKey]+' '+typeKey : '—'} | ${c.interaksi_terakhir||'-'}\n📅 Last FU: ${c.last_fu||'-'}\n\nPerkembangan: ${c.perkembangan||'-'}\nCatatan: ${c.catatan||'-'}`);
+    }
+
+    // ── UPLOAD CSV ──
+    function showUploadModal() {
+        document.getElementById('uploadModal').classList.remove('hidden');
+    }
+    function closeUploadModal() {
+        document.getElementById('uploadModal').classList.add('hidden');
+        document.getElementById('uploadFileInput').value = '';
+        document.getElementById('uploadStatus').innerHTML = '';
+    }
+
+    function parseIndonesianDate(str) {
+        if (!str || str.includes('#') || str === 'FALSE' || str === 'TRUE') return null;
+        str = str.trim();
+        const bulan = { 'Jan':'01','Feb':'02','Mar':'03','Apr':'04','Mei':'05','Mei':'05',
+            'Jun':'06','Jul':'07','Agu':'08','Agt':'08','Sep':'09','Okt':'10','Nov':'11','Des':'12' };
+        // "30 Des 2024"
+        let m = str.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+        if (m) {
+            const mo = bulan[m[2].substring(0,3)];
+            if (mo) return `${m[3]}-${mo}-${m[1].padStart(2,'0')}`;
+        }
+        // "31/12/24" or "31/12/2024"
+        m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (m) {
+            let y = m[3]; if (y.length === 2) y = '20' + y;
+            return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+        }
+        return null;
+    }
+
+    function parseBool(val) {
+        if (!val) return false;
+        return val.toString().trim().toUpperCase() === 'TRUE';
+    }
+
+    function cleanVal(val) {
+        if (!val) return null;
+        const s = val.toString().trim();
+        if (s === '' || s.startsWith('#') || s === 'FALSE' || s === 'TRUE') return null;
+        return s;
+    }
+
+    async function processUpload() {
+        const file = document.getElementById('uploadFileInput').files[0];
+        if (!file) { alert('Pilih file CSV dulu!'); return; }
+
+        const status = document.getElementById('uploadStatus');
+        status.innerHTML = '<div style="color:#6366F1;">⏳ Membaca file...</div>';
+
+        const text = await file.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) { status.innerHTML = '<div style="color:#EF4444;">File kosong atau tidak valid</div>'; return; }
+
+        // Parse header
+        const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase()
+            .replace(/\s+/g, '_')
+            .replace(/[^a-z0-9_]/g, ''));
+
+        status.innerHTML = `<div style="color:#6366F1;">⏳ Memproses ${lines.length - 1} baris...</div>`;
+
+        const colMap = {
+            tgl:    ['tgl'],
+            nama:   ['nama'],
+            no_hp:  ['no_hp', 'no_hp_'],
+            desa:   ['desa'],
+            kec:    ['kec'],
+            kab:    ['kab'],
+            prov:   ['prov'],
+            nama_cs:['nama_cs'],
+            crm:    ['crm'],
+            type:   ['type'],
+            penyakit:['penyakit'],
+            usia:   ['usia'],
+            jenis_kelamin: ['jenis_kelamin'],
+            pekerjaan: ['pekerjaanaktivitas','pekerjaan'],
+            hobi:   ['hobikesenangan','hobi'],
+            tgl_lahir: ['tgl_lahir'],
+            manjur: ['manjur'],
+            zonk:   ['zonk'],
+            perkembangan: ['perkembangan'],
+            edukasi: ['edukasi'],
+            edukasi_2: ['edukasi_2'],
+            promo:  ['promo'],
+            ro:     ['ro'],
+            jumlah_box: ['jumlah_box'],
+            point:  ['point'],
+            interaksi_terakhir: ['interaksi_terakhir'],
+            last_fu: ['last_fu'],
+            tgl_potensi_ro: ['tgl_potensi_ro'],
+            sebab_gagal_ro: ['sebabgagal_ro','sebab'],
+            curhat: ['curhat'],
+            catatan: ['catatan_khususcustomer','catatan_khusus','catatan'],
+        };
+
+        function getCol(field) {
+            const aliases = colMap[field] || [field];
+            for (const alias of aliases) {
+                const idx = headers.findIndex(h => h.includes(alias) || alias.includes(h));
+                if (idx >= 0) return idx;
+            }
+            return -1;
+        }
+
+        const idx = {};
+        Object.keys(colMap).forEach(f => { idx[f] = getCol(f); });
+
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const cols = parseCSVLine(lines[i]);
+            const get = (f) => idx[f] >= 0 ? (cols[idx[f]] || '').trim() : '';
+
+            const nama = get('nama');
+            if (!nama || nama.startsWith('#')) continue;
+
+            // clean type (strip emoji prefix if any)
+            let typeVal = get('type');
+            if (typeVal.includes('Aktif')) typeVal = '🟢 Aktif';
+            else if (typeVal.includes('Pasif')) typeVal = '🟡 Pasif';
+            else if (typeVal.includes('Jenuh')) typeVal = '🟠 Jenuh';
+            else typeVal = cleanVal(typeVal);
+
+            rows.push({
+                tgl:        parseIndonesianDate(get('tgl')),
+                nama:       nama,
+                no_hp:      cleanVal(get('no_hp')),
+                desa:       cleanVal(get('desa')),
+                kec:        cleanVal(get('kec')),
+                kab:        cleanVal(get('kab')),
+                prov:       cleanVal(get('prov')),
+                nama_cs:    cleanVal(get('nama_cs')),
+                crm:        cleanVal(get('crm')),
+                type:       typeVal,
+                penyakit:   cleanVal(get('penyakit')),
+                usia:       cleanVal(get('usia')),
+                jenis_kelamin: cleanVal(get('jenis_kelamin')),
+                pekerjaan:  cleanVal(get('pekerjaan')),
+                hobi:       cleanVal(get('hobi')),
+                tgl_lahir:  cleanVal(get('tgl_lahir')),
+                manjur:     parseBool(get('manjur')),
+                zonk:       parseBool(get('zonk')),
+                perkembangan: cleanVal(get('perkembangan')),
+                edukasi:    parseBool(get('edukasi')),
+                edukasi_2:  parseBool(get('edukasi_2')),
+                promo:      parseBool(get('promo')),
+                ro:         parseBool(get('ro')),
+                jumlah_box: parseInt(get('jumlah_box')) || null,
+                point:      parseInt(get('point')) || null,
+                interaksi_terakhir: cleanVal(get('interaksi_terakhir')),
+                last_fu:    parseIndonesianDate(get('last_fu')),
+                tgl_potensi_ro: parseIndonesianDate(get('tgl_potensi_ro')),
+                sebab_gagal_ro: cleanVal(get('sebab_gagal_ro')),
+                curhat:     cleanVal(get('curhat')),
+                catatan:    cleanVal(get('catatan')),
+            });
+        }
+
+        if (!rows.length) { status.innerHTML = '<div style="color:#EF4444;">Tidak ada data valid ditemukan</div>'; return; }
+
+        // Batch insert 100 per request
+        let inserted = 0, errors = 0;
+        const batchSize = 100;
+        for (let i = 0; i < rows.length; i += batchSize) {
+            const batch = rows.slice(i, i + batchSize);
+            const { error } = await sbApp.from('crm_customers').insert(batch);
+            if (error) { errors += batch.length; console.error(error); }
+            else inserted += batch.length;
+            status.innerHTML = `<div style="color:#6366F1;">⏳ Upload ${Math.min(i + batchSize, rows.length)} / ${rows.length}...</div>`;
+        }
+
+        status.innerHTML = `<div style="color:#10B981;font-weight:700;">✅ Berhasil upload ${inserted} pelanggan${errors ? ` (${errors} error)` : ''}</div>`;
+        await loadPelanggan();
+    }
+
+    function parseCSVLine(line) {
+        const result = [];
+        let cur = '', inQuote = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+                if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+                else inQuote = !inQuote;
+            } else if (ch === ',' && !inQuote) {
+                result.push(cur); cur = '';
+            } else {
+                cur += ch;
+            }
+        }
+        result.push(cur);
+        return result;
     }
 
     // ── PESANAN (ORDERS) ──
