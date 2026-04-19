@@ -293,7 +293,7 @@
                 let assigned = false;
                 for (const crmName in assignmentDates) {
                     for (const a of assignmentDates[crmName]) {
-                        if (a.cs === order.cs && a.produk === produk &&
+                        if (normEq(a.cs, order.cs) && normEq(a.produk, produk) &&
                             a.dateFrom <= orderDateWIB && a.dateTo >= orderDateWIB) {
                             assigned = true;
                             break;
@@ -559,14 +559,15 @@
                         if (!row.cs) return;
                         const produk = extractProduk(row.jumlah);
                         if (!produk) return;
-                        if (!csMap[row.cs]) csMap[row.cs] = { team: row.team || 'Lainnya', products: new Set() };
-                        csMap[row.cs].products.add(produk);
+                        const csKey = norm(row.cs);
+                        if (!csMap[csKey]) csMap[csKey] = { name: norm(row.cs), team: row.team || 'Lainnya', products: new Set() };
+                        csMap[csKey].products.add(produk.toUpperCase());
                     });
 
-                    allCS = Object.keys(csMap).sort().map(cs => ({
-                        name: cs,
-                        team: csMap[cs].team,
-                        products: Array.from(csMap[cs].products).sort()
+                    allCS = Object.keys(csMap).sort().map(key => ({
+                        name: csMap[key].name,
+                        team: csMap[key].team,
+                        products: Array.from(csMap[key].products).sort()
                     }));
 
                     updateAdminCSTotal();
@@ -596,14 +597,15 @@
                         if (!row.cs) return;
                         const produk = extractProduk(row.jumlah);
                         if (!produk) return;
-                        if (!csMap[row.cs]) csMap[row.cs] = { team: row.team || 'Lainnya', products: new Set() };
-                        csMap[row.cs].products.add(produk);
+                        const csKey = norm(row.cs);
+                        if (!csMap[csKey]) csMap[csKey] = { name: norm(row.cs), team: row.team || 'Lainnya', products: new Set() };
+                        csMap[csKey].products.add(produk.toUpperCase());
                     });
 
-                    allCS = Object.keys(csMap).sort().map(cs => ({
-                        name: cs,
-                        team: csMap[cs].team,
-                        products: Array.from(csMap[cs].products).sort()
+                    allCS = Object.keys(csMap).sort().map(key => ({
+                        name: csMap[key].name,
+                        team: csMap[key].team,
+                        products: Array.from(csMap[key].products).sort()
                     }));
 
                     updateAdminCSTotal();
@@ -949,13 +951,13 @@
                 if (!key.startsWith('|') && !seen.has(key)) {
                     seen.add(key);
                     uniqueCustomers.push({
-                        nama:     o.nama    || null,
-                        no_hp:    o.hp      || null,
-                        desa:     o.kelurahan  || null,
-                        kec:      o.kecamatan  || null,
-                        kab:      o.kabupaten  || null,
-                        prov:     o.provinsi   || null,
-                        nama_cs:  o.cs         || null,
+                        nama:     norm(o.nama)  || null,
+                        no_hp:    o.hp          || null,
+                        desa:     o.kelurahan   || null,
+                        kec:      o.kecamatan   || null,
+                        kab:      norm(o.kabupaten) || null,
+                        prov:     norm(o.provinsi)  || null,
+                        nama_cs:  norm(o.cs)    || null,
                         crm:      crmName,
                         tgl:      o.created_at ? o.created_at.slice(0, 10) : null,
                     });

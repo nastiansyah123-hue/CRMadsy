@@ -103,6 +103,17 @@ async function loadAssignments() {
 // =====================
 // HELPERS
 // =====================
+
+// Normalisasi teks: trim + Title Case — "ghazi"/"GHAZI"/"gHazi" → "Ghazi"
+function norm(str) {
+    if (!str) return '';
+    return str.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+// Perbandingan case-insensitive
+function normEq(a, b) {
+    return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+}
+
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;')
