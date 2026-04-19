@@ -27,6 +27,9 @@
                 <div id="adminNav-riwayat" class="nav-item" onclick="adminShowSection('riwayat')">
                     <span class="nav-icon">📜</span> Riwayat
                 </div>
+                <div id="adminNav-orderan" class="nav-item" onclick="adminShowSection('orderan')">
+                    <span class="nav-icon">🗂️</span> All Orderan
+                </div>
             </nav>
             <div class="sidebar-footer">
                 <div class="sidebar-username" id="adminUsername"></div>
@@ -155,6 +158,72 @@
                 </div>
             </div>
 
+            <!-- ===== ALL ORDERAN ===== -->
+            <div id="adminSec-orderan" class="admin-section">
+                <div class="section-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div class="section-title">🗂️ All Orderan</div>
+                            <div class="section-sub">Lihat dan hapus data orderan dari CRM Sales</div>
+                        </div>
+                        <button onclick="loadAllOrderan()" class="btn btn-secondary btn-small">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Filter -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Dari</label>
+                            <input type="date" id="orderanDateFrom" class="form-input" style="width: 160px;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Sampai</label>
+                            <input type="date" id="orderanDateTo" class="form-input" style="width: 160px;">
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 130px;">
+                            <label class="form-label">Team</label>
+                            <select id="orderanTeamFilter" class="form-select">
+                                <option value="">Semua Team</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 130px;">
+                            <label class="form-label">CS</label>
+                            <select id="orderanCsFilter" class="form-select">
+                                <option value="">Semua CS</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 130px;">
+                            <label class="form-label">Sumber</label>
+                            <select id="orderanSumberFilter" class="form-select">
+                                <option value="">Semua Sumber</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 8px; padding-bottom: 1px;">
+                            <button onclick="loadAllOrderan()" class="btn btn-primary">🔍 Filter</button>
+                            <button onclick="clearOrderanFilter()" class="btn btn-secondary">✖ Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk action bar -->
+                <div id="orderanBulkBar" class="hidden" style="margin-bottom: 12px; padding: 12px 16px; background: #fef2f2; border: 2px solid #ef4444; border-radius: 10px; display: flex; align-items: center; justify-content: space-between;">
+                    <span id="orderanSelectedCount" style="font-weight: 700; font-size: 13px; color: #991b1b;"></span>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="deselectAllOrderan()" class="btn btn-secondary btn-small">Batal Pilih</button>
+                        <button onclick="bulkDeleteOrderan()" class="btn btn-danger btn-small">🗑 Hapus yang Dipilih</button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div id="orderanTableWrap" style="overflow-x: auto;">
+                    <p style="color: #94a3b8; text-align: center; padding: 32px;">Pilih filter lalu klik Filter untuk menampilkan data.</p>
+                </div>
+
+                <!-- Pagination -->
+                <div id="orderanPagination" style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px;"></div>
+            </div>
+
         </main>
     </div>
 
@@ -164,7 +233,7 @@
         // ADMIN SIDEBAR NAV
         // =====================
         function adminShowSection(section) {
-            ['dashboard', 'assignment', 'riwayat'].forEach(s => {
+            ['dashboard', 'assignment', 'riwayat', 'orderan'].forEach(s => {
                 const sec = document.getElementById('adminSec-' + s);
                 const nav = document.getElementById('adminNav-' + s);
                 if (sec) sec.style.display = 'none';
@@ -177,6 +246,7 @@
 
             if (section === 'dashboard') loadDashboard();
             if (section === 'riwayat')   loadRiwayat();
+            if (section === 'orderan')   loadAllOrderan();
         }
 
         // ===== DASHBOARD =====
@@ -197,27 +267,14 @@
             const dateFromUTC = new Date(thirtyDaysAgo.toISOString().split('T')[0] + 'T00:00:00+07:00').toISOString();
             const dateToUTC = new Date(todayWIB.toISOString().split('T')[0] + 'T23:59:59+07:00').toISOString();
 
-            let data = [];
-            let pgIdx = 0;
-            const pgSize = 1000;
-            let pgMore = true;
-            while (pgMore) {
-                const { data: chunk, error } = await sbData
-                    .from('all_orderan')
-                    .select('cs, jumlah, created_at')
-                    .ilike('sumber', 'Validasi')
-                    .gte('created_at', dateFromUTC)
-                    .lte('created_at', dateToUTC)
-                    .range(pgIdx * pgSize, (pgIdx + 1) * pgSize - 1);
-                if (error) { alertEl.innerHTML = ''; return; }
-                if (chunk && chunk.length > 0) {
-                    data = data.concat(chunk);
-                    pgMore = chunk.length === pgSize;
-                    pgIdx++;
-                } else {
-                    pgMore = false;
-                }
-            }
+            const { data, error: dashErr } = await sbData
+                .from('all_orderan')
+                .select('cs, jumlah, created_at')
+                .ilike('sumber', 'Validasi')
+                .gte('created_at', dateFromUTC)
+                .lte('created_at', dateToUTC)
+                .limit(10000);
+            if (dashErr) { alertEl.innerHTML = ''; return; }
 
             const unassignedByDate = {};
 
@@ -363,24 +420,14 @@
             const uniqueCSNames = [...new Set(data.map(a => a.cs_name))];
             const csTeamLocal = {};
             if (uniqueCSNames.length > 0) {
-                let pg = 0; const pgSize = 1000;
-                const found = new Set();
-                while (found.size < uniqueCSNames.length) {
-                    const { data: chunk } = await sbData.from('all_orderan')
-                        .select('cs, team')
-                        .in('cs', uniqueCSNames)
-                        .not('team', 'is', null)
-                        .range(pg * pgSize, (pg + 1) * pgSize - 1);
-                    if (!chunk || !chunk.length) break;
-                    chunk.forEach(row => {
-                        if (row.cs && row.team && !csTeamLocal[row.cs]) {
-                            csTeamLocal[row.cs] = row.team;
-                            found.add(row.cs);
-                        }
-                    });
-                    if (chunk.length < pgSize) break;
-                    pg++;
-                }
+                const { data: teamData } = await sbData.from('all_orderan')
+                    .select('cs, team')
+                    .in('cs', uniqueCSNames)
+                    .not('team', 'is', null)
+                    .limit(10000);
+                (teamData || []).forEach(row => {
+                    if (row.cs && row.team && !csTeamLocal[row.cs]) csTeamLocal[row.cs] = row.team;
+                });
             }
 
             // Update team dropdown berdasarkan data yang ada
@@ -497,23 +544,14 @@
                 const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
                 const dateToUTC   = new Date(dateTo   + 'T23:59:59+07:00').toISOString();
 
-                let rawData = [];
-                let pg = 0; const pgSize = 1000; let pgMore = true;
-                while (pgMore) {
-                    const { data: chunk, error } = await sbData
-                        .from('all_orderan')
-                        .select('cs, jumlah, team')
-                        .ilike('sumber', 'Validasi')
-                        .gte('created_at', dateFromUTC)
-                        .lte('created_at', dateToUTC)
-                        .range(pg * pgSize, (pg + 1) * pgSize - 1);
-                    if (error) throw error;
-                    if (chunk && chunk.length > 0) {
-                        rawData = rawData.concat(chunk);
-                        pgMore = chunk.length === pgSize;
-                        pg++;
-                    } else { pgMore = false; }
-                }
+                const { data: rawData, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs, jumlah, team')
+                    .ilike('sumber', 'Validasi')
+                    .gte('created_at', dateFromUTC)
+                    .lte('created_at', dateToUTC)
+                    .limit(10000);
+                if (error) throw error;
 
                 if (rawData.length > 0) {
                     const csMap = {};
@@ -548,20 +586,11 @@
             if (!confirm('Load semua CS? (Bisa lambat jika data banyak)')) return;
 
             try {
-                let rawData = [];
-                let pg = 0; const pgSize = 1000; let pgMore = true;
-                while (pgMore) {
-                    const { data: chunk, error } = await sbData
-                        .from('all_orderan')
-                        .select('cs, jumlah, team')
-                        .range(pg * pgSize, (pg + 1) * pgSize - 1);
-                    if (error) throw error;
-                    if (chunk && chunk.length > 0) {
-                        rawData = rawData.concat(chunk);
-                        pgMore = chunk.length === pgSize;
-                        pg++;
-                    } else { pgMore = false; }
-                }
+                const { data: rawData, error } = await sbData
+                    .from('all_orderan')
+                    .select('cs, jumlah, team')
+                    .limit(10000);
+                if (error) throw error;
 
                 if (rawData.length > 0) {
                     const csMap = {};
@@ -757,26 +786,13 @@
             const dateFromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
             const dateToUTC = new Date(dateTo + 'T23:59:59+07:00').toISOString();
 
-            let allOrdersData = [];
-            let page = 0;
-            const pageSize = 1000;
-            let hasMore = true;
-            while (hasMore) {
-                const { data: chunk } = await sbData
-                    .from('all_orderan')
-                    .select('cs, jumlah')
-                    .ilike('sumber', 'Validasi')
-                    .gte('created_at', dateFromUTC)
-                    .lte('created_at', dateToUTC)
-                    .range(page * pageSize, (page + 1) * pageSize - 1);
-                if (chunk && chunk.length > 0) {
-                    allOrdersData = allOrdersData.concat(chunk);
-                    hasMore = chunk.length === pageSize;
-                    page++;
-                } else {
-                    hasMore = false;
-                }
-            }
+            const { data: allOrdersData } = await sbData
+                .from('all_orderan')
+                .select('cs, jumlah')
+                .ilike('sumber', 'Validasi')
+                .gte('created_at', dateFromUTC)
+                .lte('created_at', dateToUTC)
+                .limit(10000);
 
             const { data: assignmentsData } = await sbApp.from('crm_assignments')
                 .select('*')
@@ -934,6 +950,211 @@
             if (!list.innerHTML.trim()) {
                 list.innerHTML = '<p style="color: #94a3b8;">Belum ada assignment dengan produk</p>';
             }
+        }
+
+        // =====================
+        // ALL ORDERAN
+        // =====================
+        let orderanData = [];
+        let orderanSelected = new Set();
+        let orderanPage = 1;
+        const orderanPageSize = 100;
+
+        async function loadAllOrderan() {
+            const wrap = document.getElementById('orderanTableWrap');
+            wrap.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Memuat data...</p>';
+            document.getElementById('orderanPagination').innerHTML = '';
+            orderanSelected.clear();
+            updateOrderanBulkBar();
+
+            const dateFrom  = document.getElementById('orderanDateFrom').value;
+            const dateTo    = document.getElementById('orderanDateTo').value;
+            const teamFilter  = document.getElementById('orderanTeamFilter').value;
+            const csFilter    = document.getElementById('orderanCsFilter').value;
+            const sumberFilter = document.getElementById('orderanSumberFilter').value;
+
+            let query = sbData.from('all_orderan')
+                .select('id, cs, team, jumlah, sumber, resi, status, pembayaran, created_at')
+                .order('created_at', { ascending: false })
+                .limit(10000);
+
+            if (dateFrom) query = query.gte('created_at', new Date(dateFrom + 'T00:00:00+07:00').toISOString());
+            if (dateTo)   query = query.lte('created_at', new Date(dateTo   + 'T23:59:59+07:00').toISOString());
+            if (teamFilter)   query = query.eq('team', teamFilter);
+            if (csFilter)     query = query.eq('cs', csFilter);
+            if (sumberFilter) query = query.ilike('sumber', sumberFilter);
+
+            const { data, error } = await query;
+
+            if (error) { wrap.innerHTML = `<p style="color:#ef4444;text-align:center;padding:32px;">Error: ${error.message}</p>`; return; }
+            if (!data || !data.length) { wrap.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Tidak ada data.</p>'; return; }
+
+            orderanData = data;
+            orderanPage = 1;
+
+            // Populate filter dropdowns dari data yang ada
+            populateOrderanFilters(data);
+            renderOrderanTable();
+        }
+
+        function populateOrderanFilters(data) {
+            const teams   = [...new Set(data.map(r => r.team).filter(Boolean))].sort();
+            const csNames = [...new Set(data.map(r => r.cs).filter(Boolean))].sort();
+            const sumbers = [...new Set(data.map(r => r.sumber).filter(Boolean))].sort();
+
+            const teamSel   = document.getElementById('orderanTeamFilter');
+            const csSel     = document.getElementById('orderanCsFilter');
+            const sumberSel = document.getElementById('orderanSumberFilter');
+
+            const cur = { team: teamSel.value, cs: csSel.value, sumber: sumberSel.value };
+
+            teamSel.innerHTML   = '<option value="">Semua Team</option>'   + teams.map(t => `<option value="${t}" ${t===cur.team?'selected':''}>${t}</option>`).join('');
+            csSel.innerHTML     = '<option value="">Semua CS</option>'     + csNames.map(c => `<option value="${c}" ${c===cur.cs?'selected':''}>${c}</option>`).join('');
+            sumberSel.innerHTML = '<option value="">Semua Sumber</option>' + sumbers.map(s => `<option value="${s}" ${s===cur.sumber?'selected':''}>${s}</option>`).join('');
+        }
+
+        function renderOrderanTable() {
+            const wrap = document.getElementById('orderanTableWrap');
+            const pgEl = document.getElementById('orderanPagination');
+            const total = orderanData.length;
+            const totalPages = Math.ceil(total / orderanPageSize);
+            const start = (orderanPage - 1) * orderanPageSize;
+            const pageData = orderanData.slice(start, start + orderanPageSize);
+
+            const rows = pageData.map(r => {
+                const tgl = r.created_at
+                    ? new Date(new Date(r.created_at).getTime() + 7*60*60*1000).toISOString().replace('T',' ').slice(0,16)
+                    : '-';
+                const isChecked = orderanSelected.has(r.id);
+                return `
+                    <tr style="border-top:1px solid #f1f5f9;${isChecked ? 'background:#fef2f2;' : ''}">
+                        <td style="padding:8px 12px;text-align:center;">
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleOrderanSelect(${r.id}, this.checked)">
+                        </td>
+                        <td style="padding:8px 12px;font-size:12px;color:#64748b;white-space:nowrap;">${tgl}</td>
+                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.team || '-')}</td>
+                        <td style="padding:8px 12px;font-size:12px;font-weight:600;">${escapeHtml(r.cs || '-')}</td>
+                        <td style="padding:8px 12px;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.jumlah || '')}">${escapeHtml(r.jumlah || '-')}</td>
+                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.sumber || '-')}</td>
+                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.resi || '-')}</td>
+                        <td style="padding:8px 12px;font-size:12px;">${escapeHtml(r.status || '-')}</td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <button onclick="deleteOneOrderan(${r.id})" class="btn btn-danger btn-small" style="padding:3px 8px;font-size:11px;">Hapus</button>
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            const selectAllChecked = pageData.length > 0 && pageData.every(r => orderanSelected.has(r.id));
+
+            wrap.innerHTML = `
+                <div style="font-size:13px;color:#64748b;margin-bottom:10px;">
+                    Menampilkan <strong>${start+1}–${Math.min(start+orderanPageSize, total)}</strong> dari <strong>${total}</strong> data
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead style="background:#f8fafc;position:sticky;top:0;">
+                        <tr>
+                            <th style="padding:10px 12px;text-align:center;">
+                                <input type="checkbox" ${selectAllChecked ? 'checked' : ''} onchange="toggleSelectPageOrderan(this.checked)" title="Pilih semua di halaman ini">
+                            </th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;white-space:nowrap;">Tanggal (WIB)</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Team</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">CS</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Jumlah/Produk</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Sumber</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Resi</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Status</th>
+                            <th style="padding:10px 12px;text-align:center;font-weight:700;color:#475569;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+
+            // Pagination controls
+            if (totalPages > 1) {
+                let pgBtns = '';
+                pgBtns += `<button onclick="orderanGoPage(${orderanPage-1})" class="btn btn-secondary btn-small" ${orderanPage===1?'disabled':''}>‹ Prev</button>`;
+                pgBtns += `<span style="font-size:13px;color:#475569;">Hal ${orderanPage} / ${totalPages}</span>`;
+                pgBtns += `<button onclick="orderanGoPage(${orderanPage+1})" class="btn btn-secondary btn-small" ${orderanPage===totalPages?'disabled':''}>Next ›</button>`;
+                pgEl.innerHTML = pgBtns;
+            } else {
+                pgEl.innerHTML = '';
+            }
+        }
+
+        function orderanGoPage(pg) {
+            const totalPages = Math.ceil(orderanData.length / orderanPageSize);
+            if (pg < 1 || pg > totalPages) return;
+            orderanPage = pg;
+            renderOrderanTable();
+        }
+
+        function toggleOrderanSelect(id, checked) {
+            if (checked) orderanSelected.add(id);
+            else orderanSelected.delete(id);
+            updateOrderanBulkBar();
+            renderOrderanTable();
+        }
+
+        function toggleSelectPageOrderan(checked) {
+            const start = (orderanPage - 1) * orderanPageSize;
+            const pageData = orderanData.slice(start, start + orderanPageSize);
+            pageData.forEach(r => { if (checked) orderanSelected.add(r.id); else orderanSelected.delete(r.id); });
+            updateOrderanBulkBar();
+            renderOrderanTable();
+        }
+
+        function deselectAllOrderan() {
+            orderanSelected.clear();
+            updateOrderanBulkBar();
+            renderOrderanTable();
+        }
+
+        function updateOrderanBulkBar() {
+            const bar = document.getElementById('orderanBulkBar');
+            const countEl = document.getElementById('orderanSelectedCount');
+            if (orderanSelected.size > 0) {
+                bar.classList.remove('hidden');
+                countEl.textContent = `${orderanSelected.size} data dipilih`;
+            } else {
+                bar.classList.add('hidden');
+            }
+        }
+
+        async function deleteOneOrderan(id) {
+            if (!confirm('Hapus data orderan ini?')) return;
+            const { error } = await sbData.from('all_orderan').delete().eq('id', id);
+            if (error) { alert('Gagal hapus: ' + error.message); return; }
+            orderanData = orderanData.filter(r => r.id !== id);
+            orderanSelected.delete(id);
+            updateOrderanBulkBar();
+            renderOrderanTable();
+        }
+
+        async function bulkDeleteOrderan() {
+            if (!orderanSelected.size) return;
+            if (!confirm(`Hapus ${orderanSelected.size} data orderan yang dipilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+            const ids = [...orderanSelected];
+            const { error } = await sbData.from('all_orderan').delete().in('id', ids);
+            if (error) { alert('Gagal hapus: ' + error.message); return; }
+            orderanData = orderanData.filter(r => !orderanSelected.has(r.id));
+            orderanSelected.clear();
+            updateOrderanBulkBar();
+            if (orderanPage > Math.ceil(orderanData.length / orderanPageSize)) orderanPage = 1;
+            renderOrderanTable();
+            alert(`✅ ${ids.length} data berhasil dihapus.`);
+        }
+
+        function clearOrderanFilter() {
+            document.getElementById('orderanDateFrom').value = '';
+            document.getElementById('orderanDateTo').value = '';
+            document.getElementById('orderanTeamFilter').value = '';
+            document.getElementById('orderanCsFilter').value = '';
+            document.getElementById('orderanSumberFilter').value = '';
+            document.getElementById('orderanTableWrap').innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Pilih filter lalu klik Filter untuk menampilkan data.</p>';
+            document.getElementById('orderanPagination').innerHTML = '';
+            orderanData = [];
+            orderanSelected.clear();
+            updateOrderanBulkBar();
         }
 
         // =====================
