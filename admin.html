@@ -977,21 +977,33 @@
             const csFilter    = document.getElementById('orderanCsFilter').value;
             const sumberFilter = document.getElementById('orderanSumberFilter').value;
 
-            let query = sbData.from('all_orderan')
-                .select('id, cs, team, jumlah, sumber, resi, pembayaran, created_at')
-                .order('created_at', { ascending: false })
-                .limit(10000);
+            const dateFromUTC = dateFrom ? new Date(dateFrom + 'T00:00:00+07:00').toISOString() : null;
+            const dateToUTC   = dateTo   ? new Date(dateTo   + 'T23:59:59+07:00').toISOString() : null;
 
-            if (dateFrom) query = query.gte('created_at', new Date(dateFrom + 'T00:00:00+07:00').toISOString());
-            if (dateTo)   query = query.lte('created_at', new Date(dateTo   + 'T23:59:59+07:00').toISOString());
-            if (teamFilter)   query = query.eq('team', teamFilter);
-            if (csFilter)     query = query.eq('cs', csFilter);
-            if (sumberFilter) query = query.ilike('sumber', sumberFilter);
+            let data = [];
+            let pg = 0; const pgSize = 1000; let pgMore = true;
+            while (pgMore) {
+                let q = sbData.from('all_orderan')
+                    .select('id, cs, team, jumlah, sumber, resi, pembayaran, created_at')
+                    .order('created_at', { ascending: false })
+                    .range(pg * pgSize, (pg + 1) * pgSize - 1);
+                if (dateFromUTC)  q = q.gte('created_at', dateFromUTC);
+                if (dateToUTC)    q = q.lte('created_at', dateToUTC);
+                if (teamFilter)   q = q.eq('team', teamFilter);
+                if (csFilter)     q = q.eq('cs', csFilter);
+                if (sumberFilter) q = q.ilike('sumber', sumberFilter);
 
-            const { data, error } = await query;
+                const { data: chunk, error } = await q;
+                if (error) { wrap.innerHTML = `<p style="color:#ef4444;text-align:center;padding:32px;">Error: ${error.message}</p>`; return; }
+                if (chunk && chunk.length > 0) {
+                    data = data.concat(chunk);
+                    pgMore = chunk.length === pgSize;
+                    pg++;
+                    wrap.innerHTML = `<p style="color:#94a3b8;text-align:center;padding:32px;">Memuat... ${data.length} data</p>`;
+                } else { pgMore = false; }
+            }
 
-            if (error) { wrap.innerHTML = `<p style="color:#ef4444;text-align:center;padding:32px;">Error: ${error.message}</p>`; return; }
-            if (!data || !data.length) { wrap.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Tidak ada data.</p>'; return; }
+            if (!data.length) { wrap.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Tidak ada data.</p>'; return; }
 
             orderanData = data;
             orderanFiltered = data;
