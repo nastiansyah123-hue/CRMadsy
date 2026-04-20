@@ -95,6 +95,15 @@
                         </select>
                     </div>
 
+                    <div id="adminProdukWrapper" class="hidden">
+                        <div class="form-group">
+                            <label class="form-label">Pilih Produk</label>
+                            <select id="adminProdukSelect" class="form-select" onchange="onAdminProdukChange()">
+                                <option value="">-- Semua Produk --</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div id="adminCrmWrapper" class="hidden">
                         <div class="form-group">
                             <label class="form-label">Pilih CRM User</label>
@@ -644,15 +653,28 @@
         function onAdminTeamChange() {
             const team = document.getElementById('adminTeamSelect').value;
             if (team) {
+                // Populate produk dropdown berdasarkan team yang dipilih
+                const csInTeam = allCS.filter(cs => cs.team === team);
+                const produkSet = [...new Set(csInTeam.flatMap(cs => cs.products))].sort();
+                const produkSelect = document.getElementById('adminProdukSelect');
+                produkSelect.innerHTML = '<option value="">-- Semua Produk --</option>' +
+                    produkSet.map(p => `<option value="${p}">${p}</option>`).join('');
+                document.getElementById('adminProdukWrapper').classList.remove('hidden');
+
                 document.getElementById('adminCrmWrapper').classList.remove('hidden');
                 document.getElementById('adminCrmSelect').value = '';
                 document.getElementById('adminCsSelection').classList.add('hidden');
                 currentCRM = '';
                 selectedCS = [];
             } else {
+                document.getElementById('adminProdukWrapper').classList.add('hidden');
                 document.getElementById('adminCrmWrapper').classList.add('hidden');
                 document.getElementById('adminCsSelection').classList.add('hidden');
             }
+        }
+
+        function onAdminProdukChange() {
+            if (currentCRM) renderAdminCSGrid();
         }
 
         function renderAdminCRMSelect() {
@@ -695,11 +717,13 @@
                 });
             }
 
-            const selectedTeam = document.getElementById('adminTeamSelect').value;
+            const selectedTeam   = document.getElementById('adminTeamSelect').value;
+            const selectedProduk = document.getElementById('adminProdukSelect')?.value || '';
             const csToRender = selectedTeam ? allCS.filter(cs => cs.team === selectedTeam) : allCS;
             const productGroups = {};
             csToRender.forEach(csData => {
                 csData.products.forEach(product => {
+                    if (selectedProduk && product !== selectedProduk) return;
                     const key = `${csData.name}|${product}`;
                     if (alreadyAssigned.has(key)) return;
 
