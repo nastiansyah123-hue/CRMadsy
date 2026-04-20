@@ -572,16 +572,30 @@
             }
 
             // Kumpulkan semua crm_name + date range dari assignments yang cocok
-            const crmNames  = [...new Set(assignments.map(a => a.crm_name))];
-            const minDate   = assignments.reduce((m, a) => a.date_from < m ? a.date_from : m, assignments[0].date_from);
-            const maxDate   = assignments.reduce((m, a) => a.date_to   > m ? a.date_to   : m, assignments[0].date_to);
+            const crmNames = [...new Set(assignments.map(a => a.crm_name))];
+            const minDate  = assignments.reduce((m, a) => a.date_from < m ? a.date_from : m, assignments[0].date_from);
+            const maxDate  = assignments.reduce((m, a) => a.date_to   > m ? a.date_to   : m, assignments[0].date_to);
 
-            const { data: all, error } = await fetchAll((from, to) => {
+            // Fetch semua order dalam range, lalu filter client-side sesuai cs+produk assignment
+            // (sama persis dengan logika CRM display)
+            const { data: raw, error } = await fetchAll((from, to) => {
                 let q = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
                 if (crmNames.length === 1) q = q.eq('crm_name', crmNames[0]);
                 else if (crmNames.length > 1) q = q.in('crm_name', crmNames);
                 q = q.gte('tgl_order', minDate).lte('tgl_order', maxDate);
                 return q.range(from, to);
+            });
+
+            // Filter client-side: harus match cs + produk + date range dari assignment
+            const all = (raw || []).filter(o => {
+                const produk = (o.produk || '').toUpperCase();
+                const tgl    = o.tgl_order || '';
+                return assignments.some(a =>
+                    normEq(a.cs_name, o.cs) &&
+                    normEq(a.produk, produk) &&
+                    tgl >= a.date_from &&
+                    tgl <= a.date_to
+                );
             });
 
             if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download Excel'; return; }
