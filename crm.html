@@ -1049,7 +1049,10 @@
         grid.innerHTML = entries.map(([name, s], i) => {
             const c = colors[i % colors.length];
             const pct = s.total ? Math.round(s.delivered/s.total*100) : 0;
-            return `<div class="crm-produk-card" style="border-top-color:${c};">
+            return `<div class="crm-produk-card" style="border-top-color:${c};cursor:pointer;transition:box-shadow 0.15s,transform 0.15s;"
+                onclick="filterByProduk('${escapeHtml(name)}')"
+                onmouseenter="this.style.boxShadow='0 4px 20px rgba(0,0,0,0.12)';this.style.transform='translateY(-2px)'"
+                onmouseleave="this.style.boxShadow='';this.style.transform=''">
                 <div class="crm-produk-name">${escapeHtml(name)}</div>
                 <div class="crm-produk-row"><span>Total</span><strong style="color:${c};">${s.total}</strong></div>
                 <div class="crm-produk-row"><span>Pending</span><strong style="color:#F59E0B;">${s.pending}</strong></div>
@@ -1057,11 +1060,25 @@
                 <div class="crm-produk-row"><span>Cancelled</span><strong style="color:#EF4444;">${s.cancelled}</strong></div>
                 <div class="crm-progress"><div class="crm-progress-bar" style="width:${pct}%;background:${c};"></div></div>
                 <div style="font-size:10px;color:#9CA3AF;text-align:right;margin-top:4px;">${pct}% delivered</div>
+                <div style="margin-top:12px;text-align:center;font-size:11px;font-weight:700;color:${c};">Lihat Pesanan →</div>
             </div>`;
         }).join('');
     }
 
-    // ── PELANGGAN ──
+    function filterByProduk(produkName) {
+        // Pindah ke section Pesanan
+        const navEl = document.getElementById('crmNavItem-pesanan');
+        crmShow('pesanan', navEl);
+        // Set filter produk
+        const sel = document.getElementById('filterProduk');
+        if (sel) {
+            // Cari option yang normEq dengan produkName
+            const opt = Array.from(sel.options).find(o => normEq(o.value, produkName));
+            sel.value = opt ? opt.value : produkName;
+        }
+        applyFilters();
+    }
+
     // ── PELANGGAN ──
     let crmCustomers = [];
     let filteredCustomers = [];
