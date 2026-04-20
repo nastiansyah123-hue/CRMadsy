@@ -153,14 +153,6 @@
                             </select>
                         </div>
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Dari</label>
-                            <input type="date" id="riwayatDateFrom" class="form-input" style="width: 160px;">
-                        </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Sampai</label>
-                            <input type="date" id="riwayatDateTo" class="form-input" style="width: 160px;">
-                        </div>
-                        <div class="form-group" style="margin: 0;">
                             <label class="form-label">Tgl Assign</label>
                             <input type="date" id="riwayatAssignDate" class="form-input" style="width: 160px;">
                         </div>
@@ -422,15 +414,16 @@
                 crmUsers.map(u => `<option value="${u.username}" ${u.username === currentCrmFilter ? 'selected' : ''}>${u.username}</option>`).join('');
 
             const crmFilter  = document.getElementById('riwayatCrmFilter').value;
-            const dateFrom   = document.getElementById('riwayatDateFrom').value;
-            const dateTo     = document.getElementById('riwayatDateTo').value;
+            const assignDate = document.getElementById('riwayatAssignDate').value;
             const teamFilter = document.getElementById('riwayatTeamFilter').value;
 
             // Query assignments
-            let query = sbApp.from('crm_assignments').select('*').order('date_from', { ascending: false });
-            if (crmFilter) query = query.eq('crm_name', crmFilter);
-            if (dateFrom)  query = query.gte('date_to', dateFrom);
-            if (dateTo)    query = query.lte('date_from', dateTo);
+            let query = sbApp.from('crm_assignments').select('*').order('assigned_at', { ascending: false });
+            if (crmFilter)  query = query.eq('crm_name', crmFilter);
+            if (assignDate) {
+                query = query.gte('assigned_at', assignDate + 'T00:00:00.000Z')
+                             .lte('assigned_at', assignDate + 'T23:59:59.999Z');
+            }
 
             const { data, error } = await query;
 
@@ -549,8 +542,6 @@
         function clearRiwayatFilter() {
             document.getElementById('riwayatTeamFilter').value = '';
             document.getElementById('riwayatCrmFilter').value = '';
-            document.getElementById('riwayatDateFrom').value = '';
-            document.getElementById('riwayatDateTo').value = '';
             document.getElementById('riwayatAssignDate').value = '';
             loadRiwayat();
         }
