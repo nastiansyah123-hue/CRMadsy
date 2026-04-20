@@ -160,6 +160,10 @@
                             <label class="form-label">Sampai</label>
                             <input type="date" id="riwayatDateTo" class="form-input" style="width: 160px;">
                         </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Tgl Assign</label>
+                            <input type="date" id="riwayatAssignDate" class="form-input" style="width: 160px;">
+                        </div>
                         <div style="display: flex; gap: 8px; padding-bottom: 1px;">
                             <button onclick="loadRiwayat()" class="btn btn-primary">🔍 Filter</button>
                             <button onclick="clearRiwayatFilter()" class="btn btn-secondary">✖ Reset</button>
@@ -547,23 +551,45 @@
             document.getElementById('riwayatCrmFilter').value = '';
             document.getElementById('riwayatDateFrom').value = '';
             document.getElementById('riwayatDateTo').value = '';
+            document.getElementById('riwayatAssignDate').value = '';
             loadRiwayat();
         }
 
         async function downloadAssignmentCSV() {
-            const crmFilter = document.getElementById('riwayatCrmFilter').value;
-            const dateFrom  = document.getElementById('riwayatDateFrom').value;
-            const dateTo    = document.getElementById('riwayatDateTo').value;
+            const crmFilter    = document.getElementById('riwayatCrmFilter').value;
+            const assignDate   = document.getElementById('riwayatAssignDate').value;
 
             const btn = event.target;
             btn.disabled = true;
             btn.textContent = '⏳ Mengambil data...';
 
+            // Cari assignments yang di-assign pada tanggal yang dipilih
+            // Lalu ambil order sesuai date_from/date_to assignment itu
+            let assignQuery = sbApp.from('crm_assignments').select('crm_name, date_from, date_to');
+            if (crmFilter)  assignQuery = assignQuery.eq('crm_name', crmFilter);
+            if (assignDate) {
+                const dayStart = assignDate + 'T00:00:00.000Z';
+                const dayEnd   = assignDate + 'T23:59:59.999Z';
+                assignQuery = assignQuery.gte('assigned_at', dayStart).lte('assigned_at', dayEnd);
+            }
+            const { data: assignments } = await assignQuery;
+
+            if (!assignments || !assignments.length) {
+                alert('Tidak ada assignment ditemukan untuk filter ini.');
+                btn.disabled = false; btn.textContent = '⬇️ Download Excel';
+                return;
+            }
+
+            // Kumpulkan semua crm_name + date range dari assignments yang cocok
+            const crmNames  = [...new Set(assignments.map(a => a.crm_name))];
+            const minDate   = assignments.reduce((m, a) => a.date_from < m ? a.date_from : m, assignments[0].date_from);
+            const maxDate   = assignments.reduce((m, a) => a.date_to   > m ? a.date_to   : m, assignments[0].date_to);
+
             const { data: all, error } = await fetchAll((from, to) => {
                 let q = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
-                if (crmFilter) q = q.eq('crm_name', crmFilter);
-                if (dateFrom)  q = q.gte('tgl_order', dateFrom);
-                if (dateTo)    q = q.lte('tgl_order', dateTo);
+                if (crmNames.length === 1) q = q.eq('crm_name', crmNames[0]);
+                else if (crmNames.length > 1) q = q.in('crm_name', crmNames);
+                q = q.gte('tgl_order', minDate).lte('tgl_order', maxDate);
                 return q.range(from, to);
             });
 
@@ -622,7 +648,8 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Data Assignment');
 
-            const filename = `assignment_${dateFrom||'all'}_${dateTo||'all'}${crmFilter ? '_' + crmFilter : ''}.xlsx`;
+            const today = new Date().toISOString().slice(0, 10);
+            const filename = `data_assign_${today}${crmFilter ? '_' + crmFilter : ''}.xlsx`;
             XLSX.writeFile(wb, filename);
 
             btn.disabled = false;
