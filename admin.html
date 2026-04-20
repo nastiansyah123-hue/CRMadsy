@@ -555,22 +555,19 @@
             const dateFrom  = document.getElementById('riwayatDateFrom').value;
             const dateTo    = document.getElementById('riwayatDateTo').value;
 
-            let query = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
-            if (crmFilter) query = query.eq('crm_name', crmFilter);
-            if (dateFrom)  query = query.gte('tgl_order', dateFrom);
-            if (dateTo)    query = query.lte('tgl_order', dateTo);
-
             const btn = event.target;
             btn.disabled = true;
             btn.textContent = '⏳ Mengambil data...';
 
-            let all = [], pg = 0, more = true;
-            while (more) {
-                const { data, error } = await query.range(pg * 1000, (pg + 1) * 1000 - 1);
-                if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download Excel'; return; }
-                if (data && data.length > 0) { all = all.concat(data); more = data.length === 1000; pg++; }
-                else more = false;
-            }
+            const { data: all, error } = await fetchAll((from, to) => {
+                let q = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
+                if (crmFilter) q = q.eq('crm_name', crmFilter);
+                if (dateFrom)  q = q.gte('tgl_order', dateFrom);
+                if (dateTo)    q = q.lte('tgl_order', dateTo);
+                return q.range(from, to);
+            });
+
+            if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download Excel'; return; }
 
             if (!all.length) {
                 alert('Tidak ada data untuk didownload.\nCoba filter tanggal atau CRM dulu.');
