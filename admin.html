@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="app-layout">
@@ -158,7 +159,7 @@
                         <div style="display: flex; gap: 8px; padding-bottom: 1px;">
                             <button onclick="loadRiwayat()" class="btn btn-primary">🔍 Filter</button>
                             <button onclick="clearRiwayatFilter()" class="btn btn-secondary">✖ Reset</button>
-                            <button onclick="downloadAssignmentCSV()" class="btn btn-success">⬇️ Download CSV</button>
+                            <button onclick="downloadAssignmentCSV()" class="btn btn-success">⬇️ Download Excel</button>
                         </div>
                     </div>
                 </div>
@@ -550,11 +551,10 @@
         }
 
         async function downloadAssignmentCSV() {
-            const crmFilter  = document.getElementById('riwayatCrmFilter').value;
-            const dateFrom   = document.getElementById('riwayatDateFrom').value;
-            const dateTo     = document.getElementById('riwayatDateTo').value;
+            const crmFilter = document.getElementById('riwayatCrmFilter').value;
+            const dateFrom  = document.getElementById('riwayatDateFrom').value;
+            const dateTo    = document.getElementById('riwayatDateTo').value;
 
-            // Fetch dari crm_customer_orders — sudah ada crm_name, tinggal filter
             let query = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
             if (crmFilter) query = query.eq('crm_name', crmFilter);
             if (dateFrom)  query = query.gte('tgl_order', dateFrom);
@@ -567,44 +567,69 @@
             let all = [], pg = 0, more = true;
             while (more) {
                 const { data, error } = await query.range(pg * 1000, (pg + 1) * 1000 - 1);
-                if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download CSV'; return; }
+                if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download Excel'; return; }
                 if (data && data.length > 0) { all = all.concat(data); more = data.length === 1000; pg++; }
                 else more = false;
             }
 
             if (!all.length) {
                 alert('Tidak ada data untuk didownload.\nCoba filter tanggal atau CRM dulu.');
-                btn.disabled = false; btn.textContent = '⬇️ Download CSV';
+                btn.disabled = false; btn.textContent = '⬇️ Download Excel';
                 return;
             }
 
+            // Susun data sebagai array of objects — SheetJS akan buat header otomatis
             const headers = ['CRM','Nama','No HP','CS','Produk','Jumlah','Kabupaten','Provinsi','Kelurahan','Kecamatan','Pembayaran','Resi','Status','Team','Tgl Order'];
-            const rows = all.map(o => [
-                o.crm_name   || '',
-                o.nama       || '',
-                o.no_hp      || '',
-                o.cs         || '',
-                o.produk     || '',
-                o.jumlah     || '',
-                o.kabupaten  || '',
-                o.provinsi   || '',
-                o.kelurahan  || '',
-                o.kecamatan  || '',
-                o.pembayaran || '',
-                o.resi       || '',
-                o.status     || '',
-                o.team       || '',
-                o.tgl_order  || '',
-            ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+            const rows = all.map(o => ({
+                'CRM':        o.crm_name   || '',
+                'Nama':       o.nama       || '',
+                'No HP':      o.no_hp      || '',
+                'CS':         o.cs         || '',
+                'Produk':     o.produk     || '',
+                'Jumlah':     o.jumlah     || '',
+                'Kabupaten':  o.kabupaten  || '',
+                'Provinsi':   o.provinsi   || '',
+                'Kelurahan':  o.kelurahan  || '',
+                'Kecamatan':  o.kecamatan  || '',
+                'Pembayaran': o.pembayaran || '',
+                'Resi':       o.resi       || '',
+                'Status':     o.status     || '',
+                'Team':       o.team       || '',
+                'Tgl Order':  o.tgl_order  || '',
+            }));
 
-            const csv = [headers.join(','), ...rows].join('\n');
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            const filename = `assignment_${dateFrom||'all'}_${dateTo||'all'}${crmFilter ? '_' + crmFilter : ''}.csv`;
-            const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
-            a.click();
+            const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+
+            // Lebar kolom supaya rapi
+            ws['!cols'] = [
+                { wch: 16 }, // CRM
+                { wch: 24 }, // Nama
+                { wch: 16 }, // No HP
+                { wch: 14 }, // CS
+                { wch: 12 }, // Produk
+                { wch: 36 }, // Jumlah
+                { wch: 18 }, // Kabupaten
+                { wch: 16 }, // Provinsi
+                { wch: 18 }, // Kelurahan
+                { wch: 18 }, // Kecamatan
+                { wch: 20 }, // Pembayaran
+                { wch: 18 }, // Resi
+                { wch: 12 }, // Status
+                { wch: 14 }, // Team
+                { wch: 12 }, // Tgl Order
+            ];
+
+            // Freeze baris header
+            ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activeCell: 'A2', sqref: 'A2' };
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Data Assignment');
+
+            const filename = `assignment_${dateFrom||'all'}_${dateTo||'all'}${crmFilter ? '_' + crmFilter : ''}.xlsx`;
+            XLSX.writeFile(wb, filename);
 
             btn.disabled = false;
-            btn.textContent = '⬇️ Download CSV';
+            btn.textContent = '⬇️ Download Excel';
             alert(`✅ ${all.length} baris berhasil didownload!`);
         }
 
