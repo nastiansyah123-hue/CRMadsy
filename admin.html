@@ -410,8 +410,10 @@
             // Query dengan filter server-side (CRM & tanggal)
             let query = sbApp.from('crm_assignments').select('*').order('date_from', { ascending: false });
             if (crmFilter) query = query.eq('crm_name', crmFilter);
-            if (dateFrom)  query = query.gte('date_from', dateFrom);
-            if (dateTo)    query = query.lte('date_to', dateTo);
+            // Cari assignment yang periodenya overlap dengan range filter:
+            // assignment.date_from <= filter dateTo  DAN  assignment.date_to >= filter dateFrom
+            if (dateFrom)  query = query.gte('date_to', dateFrom);
+            if (dateTo)    query = query.lte('date_from', dateTo);
 
             const { data, error } = await query;
 
@@ -910,9 +912,6 @@
 
             await sbApp.from('crm_assignments').insert(assignmentData);
 
-            // Sync pelanggan di background — tidak perlu tunggu selesai
-            syncCustomersFromAssignment(assignmentList, currentCRM, dateFrom, dateTo);
-
             await loadAssignments();
             await updateAssignmentStats();
 
@@ -920,10 +919,15 @@
             await renderAdminCSGrid();
 
             alert(`✅ Tersimpan!\n${assignmentList.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
+
+            // Sync ke crm_customer_orders di background setelah alert
+            syncCustomersFromAssignment(assignmentList, currentCRM, dateFrom, dateTo)
+                .catch(e => console.error('[Sync] Fatal error:', e));
         }
 
         // ── SYNC DARI all_orderan KE crm_customers + crm_customer_orders ──
         async function syncCustomersFromAssignment(assignmentList, crmName, dateFrom, dateTo) {
+            try {
             const fromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
             const toUTC   = new Date(dateTo   + 'T23:59:59+07:00').toISOString();
 
@@ -1013,6 +1017,7 @@
                 if (upsertErr) console.error('[Sync] Upsert error batch', i, upsertErr);
             }
             console.log('[Sync] Selesai sync crm_customer_orders.');
+            } catch(e) { console.error('[Sync] Exception:', e); }
         }
 
         function renderAdminAssignmentList() {
