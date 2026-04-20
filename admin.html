@@ -937,10 +937,10 @@
             // Pakai ilike (case-insensitive) supaya "ghazi" == "Ghazi" di query
             const csFilter = csNames.map(cs => `cs.ilike.${cs.replace(/[,().%]/g, '')}`).join(',');
 
-            // Fetch semua kolom yang dibutuhkan
+            // Fetch semua kolom (select * supaya tidak salah nama kolom)
             const { data: orderData, error: fetchErr } = await fetchAll((from, to) =>
                 sbData.from('all_orderan')
-                    .select('id, nama, hp, cs, kelurahan, kecamatan, kabupaten, provinsi, created_at, jumlah, pembayaran, resi, status, team, sumber')
+                    .select('*')
                     .or(csFilter)
                     .gte('created_at', fromUTC)
                     .lte('created_at', toUTC)
