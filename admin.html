@@ -158,6 +158,7 @@
                         <div style="display: flex; gap: 8px; padding-bottom: 1px;">
                             <button onclick="loadRiwayat()" class="btn btn-primary">🔍 Filter</button>
                             <button onclick="clearRiwayatFilter()" class="btn btn-secondary">✖ Reset</button>
+                            <button onclick="downloadAssignmentCSV()" class="btn btn-success">⬇️ Download CSV</button>
                         </div>
                     </div>
                 </div>
@@ -546,6 +547,65 @@
             document.getElementById('riwayatDateFrom').value = '';
             document.getElementById('riwayatDateTo').value = '';
             loadRiwayat();
+        }
+
+        async function downloadAssignmentCSV() {
+            const crmFilter  = document.getElementById('riwayatCrmFilter').value;
+            const dateFrom   = document.getElementById('riwayatDateFrom').value;
+            const dateTo     = document.getElementById('riwayatDateTo').value;
+
+            // Fetch dari crm_customer_orders — sudah ada crm_name, tinggal filter
+            let query = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
+            if (crmFilter) query = query.eq('crm_name', crmFilter);
+            if (dateFrom)  query = query.gte('tgl_order', dateFrom);
+            if (dateTo)    query = query.lte('tgl_order', dateTo);
+
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Mengambil data...';
+
+            let all = [], pg = 0, more = true;
+            while (more) {
+                const { data, error } = await query.range(pg * 1000, (pg + 1) * 1000 - 1);
+                if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download CSV'; return; }
+                if (data && data.length > 0) { all = all.concat(data); more = data.length === 1000; pg++; }
+                else more = false;
+            }
+
+            if (!all.length) {
+                alert('Tidak ada data untuk didownload.\nCoba filter tanggal atau CRM dulu.');
+                btn.disabled = false; btn.textContent = '⬇️ Download CSV';
+                return;
+            }
+
+            const headers = ['CRM','Nama','No HP','CS','Produk','Jumlah','Kabupaten','Provinsi','Kelurahan','Kecamatan','Pembayaran','Resi','Status','Team','Tgl Order'];
+            const rows = all.map(o => [
+                o.crm_name   || '',
+                o.nama       || '',
+                o.no_hp      || '',
+                o.cs         || '',
+                o.produk     || '',
+                o.jumlah     || '',
+                o.kabupaten  || '',
+                o.provinsi   || '',
+                o.kelurahan  || '',
+                o.kecamatan  || '',
+                o.pembayaran || '',
+                o.resi       || '',
+                o.status     || '',
+                o.team       || '',
+                o.tgl_order  || '',
+            ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+
+            const csv = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const filename = `assignment_${dateFrom||'all'}_${dateTo||'all'}${crmFilter ? '_' + crmFilter : ''}.csv`;
+            const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
+            a.click();
+
+            btn.disabled = false;
+            btn.textContent = '⬇️ Download CSV';
+            alert(`✅ ${all.length} baris berhasil didownload!`);
         }
 
         // ===== LOAD CS =====
