@@ -431,28 +431,30 @@
                 return;
             }
 
-            // Ambil info team dari all_orderan untuk cs_name yang ada di hasil
-            const uniqueCSNames = [...new Set(data.map(a => a.cs_name))];
-            const csTeamLocal = {};
+            // Ambil info team dari all_orderan — pakai ilike supaya case-insensitive
+            const uniqueCSNames = [...new Set(data.map(a => a.cs_name).filter(Boolean))];
+            const csTeamLocal = {}; // key: norm(cs) → norm(team)
             if (uniqueCSNames.length > 0) {
+                const csFilter = uniqueCSNames.map(cs => `cs.ilike.${cs.replace(/[,().%]/g, '')}`).join(',');
                 const { data: teamData } = await fetchAll((from, to) =>
                     sbData.from('all_orderan').select('cs, team')
-                        .in('cs', uniqueCSNames).not('team', 'is', null).range(from, to));
+                        .or(csFilter).not('team', 'is', null).range(from, to));
                 (teamData || []).forEach(row => {
-                    if (row.cs && row.team && !csTeamLocal[row.cs]) csTeamLocal[row.cs] = row.team;
+                    const key = norm(row.cs);
+                    if (key && row.team && !csTeamLocal[key]) csTeamLocal[key] = norm(row.team);
                 });
             }
 
-            // Update team dropdown berdasarkan data yang ada
+            // Update team dropdown — sudah ter-norm, tidak ada duplikat
             const allTeams = [...new Set(Object.values(csTeamLocal))].filter(Boolean).sort();
             const teamSelect = document.getElementById('riwayatTeamFilter');
             const currentTeam = teamSelect.value;
             teamSelect.innerHTML = '<option value="">Semua Team</option>' +
                 allTeams.map(t => `<option value="${t}" ${t === currentTeam ? 'selected' : ''}>${t}</option>`).join('');
 
-            // Filter by team (client-side)
+            // Filter by team — pakai norm() supaya "team a" == "Team A"
             const filteredData = teamFilter
-                ? data.filter(a => csTeamLocal[a.cs_name] === teamFilter)
+                ? data.filter(a => normEq(csTeamLocal[norm(a.cs_name)], teamFilter))
                 : data;
 
             if (!filteredData.length) {
@@ -571,7 +573,7 @@
                         const produk = extractProduk(row.jumlah);
                         if (!produk) return;
                         const csKey = norm(row.cs);
-                        if (!csMap[csKey]) csMap[csKey] = { name: norm(row.cs), team: row.team || 'Lainnya', products: new Set() };
+                        if (!csMap[csKey]) csMap[csKey] = { name: norm(row.cs), team: norm(row.team) || 'Lainnya', products: new Set() };
                         csMap[csKey].products.add(produk.toUpperCase());
                     });
 
@@ -609,7 +611,7 @@
                         const produk = extractProduk(row.jumlah);
                         if (!produk) return;
                         const csKey = norm(row.cs);
-                        if (!csMap[csKey]) csMap[csKey] = { name: norm(row.cs), team: row.team || 'Lainnya', products: new Set() };
+                        if (!csMap[csKey]) csMap[csKey] = { name: norm(row.cs), team: norm(row.team) || 'Lainnya', products: new Set() };
                         csMap[csKey].products.add(produk.toUpperCase());
                     });
 
