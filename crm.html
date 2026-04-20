@@ -1103,11 +1103,14 @@
             return;
         }
 
+        // Pakai ilike (case-insensitive) supaya "ghazi" match "Ghazi" di database
+        const orFilter = assignedCS.map(cs => `nama_cs.ilike.${cs.replace(/[,()]/g, '')}`).join(',');
+
         let all = [], pg = 0, more = true;
         while (more) {
             const { data, error } = await sbApp.from('crm_customers')
                 .select('*')
-                .in('nama_cs', assignedCS)
+                .or(orFilter)
                 .range(pg * 1000, (pg + 1) * 1000 - 1);
             if (error) {
                 console.error('[Pelanggan] error:', error);
@@ -1155,7 +1158,7 @@
                 let pg2 = 0, more2 = true;
                 while (more2) {
                     const { data: d2 } = await sbApp.from('crm_customers')
-                        .select('*').in('nama_cs', assignedCS)
+                        .select('*').or(orFilter)
                         .range(pg2 * 1000, (pg2 + 1) * 1000 - 1);
                     if (d2 && d2.length > 0) { all = all.concat(d2); more2 = d2.length === 1000; pg2++; }
                     else more2 = false;
