@@ -1514,27 +1514,30 @@
             return;
         }
 
-        const uniqueCS = [...new Set(assignedData.map(a => a.cs))];
-        const dates    = assignedData.map(a => ({ from: a.dateFrom, to: a.dateTo }));
-        const minDate  = dates.reduce((m,r) => r.from < m ? r.from : m, dates[0].from);
-        const maxDate  = dates.reduce((m,r) => r.to > m ? r.to : m, dates[0].to);
-        const fromUTC  = new Date(minDate + 'T00:00:00+07:00').toISOString();
-        const toUTC    = new Date(maxDate + 'T23:59:59+07:00').toISOString();
-
         document.getElementById('crmTbody').innerHTML = '<tr><td colspan="13" style="text-align:center;padding:56px;color:#9CA3AF;">Memuat data...</td></tr>';
         allOrders = [];
         let page = 0, hasMore = true;
         while (hasMore) {
-            const { data } = await sbData.from('all_orderan').select('*')
-                .ilike('sumber','Validasi').in('cs', uniqueCS)
-                .gte('created_at', fromUTC).lte('created_at', toUTC)
+            const { data } = await sbApp.from('crm_customer_orders')
+                .select('*')
+                .eq('crm_name', currentUser.username)
                 .range(page*1000, (page+1)*1000-1);
-            if (data && data.length > 0) { allOrders = allOrders.concat(data); hasMore = data.length === 1000; page++; }
-            else hasMore = false;
+            if (data && data.length > 0) {
+                // Normalize field names agar kompatibel dengan kode render/filter yang ada
+                const normalized = data.map(o => ({
+                    ...o,
+                    id:         o.orderan_id,      // dipakai untuk dedup & edit
+                    hp:         o.no_hp,            // dipakai di render tabel & filter
+                    created_at: o.tgl_created,      // dipakai untuk sorting & tanggal
+                }));
+                allOrders = allOrders.concat(normalized);
+                hasMore = data.length === 1000;
+                page++;
+            } else hasMore = false;
         }
 
         const matching = allOrders.filter(o => {
-            const p = extractProduk(o.jumlah); if (!p) return false;
+            const p = extractProduk(o.jumlah) || o.produk; if (!p) return false;
             const d = o.created_at ? new Date(new Date(o.created_at).getTime()+7*3600*1000).toISOString().slice(0,10) : null;
             if (!d) return false;
             return assignedData.some(a => normEq(a.cs, o.cs) && normEq(a.produk, p) && d >= a.dateFrom && d <= a.dateTo);
@@ -1726,7 +1729,7 @@
             crm:    document.getElementById('editCRM').value,
             retur:  document.getElementById('editRetur').value
         };
-        const { error } = await sbData.from('all_orderan').update(updates).eq('id', editId);
+        const { error } = await sbApp.from('crm_customer_orders').update(updates).eq('orderan_id', editId);
         if (error) { alert('Gagal update: ' + error.message); return; }
         await loadOrders();
         closeEditModal();
