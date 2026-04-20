@@ -135,13 +135,13 @@
 
                 <!-- Filter Bar -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
-                        <div class="form-group" style="margin: 0; flex: 1; min-width: 140px;">
-                            <label class="form-label">Team</label>
-                            <select id="riwayatTeamFilter" class="form-select">
-                                <option value="">Semua Team</option>
-                            </select>
+                    <div style="margin-bottom: 14px;">
+                        <label class="form-label" style="margin-bottom: 8px; display: block;">Team</label>
+                        <div id="riwayatTeamCheckboxes" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <span style="color:#94a3b8; font-size:13px;">Memuat team...</span>
                         </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
                         <div class="form-group" style="margin: 0; flex: 1; min-width: 140px;">
                             <label class="form-label">CRM</label>
                             <select id="riwayatCrmFilter" class="form-select">
@@ -262,7 +262,7 @@
             if (activeNav)     activeNav.classList.add('nav-active');
 
             if (section === 'dashboard') loadDashboard();
-            if (section === 'riwayat')   loadRiwayat();
+            if (section === 'riwayat')   { loadRiwayatTeams(); loadRiwayat(); }
             if (section === 'orderan')   loadAllOrderan();
         }
 
@@ -401,28 +401,65 @@
         }
 
         // ===== RIWAYAT =====
+
+        // Pre-load daftar team dari allCS (sudah ada) atau query singkat ke all_orderan
+        async function loadRiwayatTeams() {
+            const wrap = document.getElementById('riwayatTeamCheckboxes');
+            let teams = [];
+
+            if (allCS.length) {
+                // Sudah ada dari Load CS — langsung pakai
+                teams = [...new Set(allCS.map(cs => cs.team).filter(Boolean))].sort();
+            } else {
+                // Fallback: query ringkas ke all_orderan
+                const { data } = await sbData.from('all_orderan').select('team').not('team', 'is', null).limit(2000);
+                teams = [...new Set((data || []).map(r => norm(r.team)).filter(Boolean))].sort();
+            }
+
+            if (!teams.length) { wrap.innerHTML = '<span style="color:#94a3b8;font-size:13px;">Tidak ada data team</span>'; return; }
+
+            wrap.innerHTML = teams.map(t => `
+                <label style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1.5px solid #e2e8f0;cursor:pointer;font-size:13px;font-weight:500;color:#374151;background:#fff;transition:all 0.15s;user-select:none;" class="team-pill">
+                    <input type="checkbox" value="${escapeHtml(t)}" onchange="onRiwayatTeamChange()" style="accent-color:#6366F1;width:14px;height:14px;">
+                    ${escapeHtml(t)}
+                </label>
+            `).join('');
+        }
+
+        function getSelectedRiwayatTeams() {
+            return [...document.querySelectorAll('#riwayatTeamCheckboxes input[type=checkbox]:checked')]
+                .map(cb => cb.value);
+        }
+
+        function onRiwayatTeamChange() {
+            // Visual: highlight pill yang terpilih
+            document.querySelectorAll('#riwayatTeamCheckboxes .team-pill').forEach(pill => {
+                const cb = pill.querySelector('input');
+                pill.style.background    = cb.checked ? '#EEF2FF' : '#fff';
+                pill.style.borderColor   = cb.checked ? '#6366F1' : '#e2e8f0';
+                pill.style.color         = cb.checked ? '#4F46E5' : '#374151';
+            });
+        }
+
         async function loadRiwayat() {
             const el = document.getElementById('riwayatContent');
             el.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:32px;">Memuat...</p>';
 
-            // Populate CRM dropdown dari users
+            // Populate CRM dropdown
             const crmSelect = document.getElementById('riwayatCrmFilter');
             const currentCrmFilter = crmSelect.value;
             const crmUsers = users.filter(u => u.role === 'crm');
             crmSelect.innerHTML = '<option value="">Semua CRM</option>' +
                 crmUsers.map(u => `<option value="${u.username}" ${u.username === currentCrmFilter ? 'selected' : ''}>${u.username}</option>`).join('');
 
-            // Ambil nilai filter
-            const crmFilter  = document.getElementById('riwayatCrmFilter').value;
-            const dateFrom   = document.getElementById('riwayatDateFrom').value;
-            const dateTo     = document.getElementById('riwayatDateTo').value;
-            const teamFilter = document.getElementById('riwayatTeamFilter').value;
+            const crmFilter    = document.getElementById('riwayatCrmFilter').value;
+            const dateFrom     = document.getElementById('riwayatDateFrom').value;
+            const dateTo       = document.getElementById('riwayatDateTo').value;
+            const selectedTeams = getSelectedRiwayatTeams(); // array team yang dipilih
 
-            // Query dengan filter server-side (CRM & tanggal)
+            // Query assignments
             let query = sbApp.from('crm_assignments').select('*').order('date_from', { ascending: false });
             if (crmFilter) query = query.eq('crm_name', crmFilter);
-            // Cari assignment yang periodenya overlap dengan range filter:
-            // assignment.date_from <= filter dateTo  DAN  assignment.date_to >= filter dateFrom
             if (dateFrom)  query = query.gte('date_to', dateFrom);
             if (dateTo)    query = query.lte('date_from', dateTo);
 
@@ -433,30 +470,28 @@
                 return;
             }
 
-            // Ambil info team dari all_orderan — pakai ilike supaya case-insensitive
+            // Ambil info team dari all_orderan (ilike, case-insensitive)
             const uniqueCSNames = [...new Set(data.map(a => a.cs_name).filter(Boolean))];
-            const csTeamLocal = {}; // key: norm(cs) → norm(team)
+            const csTeamLocal = {};
             if (uniqueCSNames.length > 0) {
-                const csFilter = uniqueCSNames.map(cs => `cs.ilike.${cs.replace(/[,().%]/g, '')}`).join(',');
-                const { data: teamData } = await fetchAll((from, to) =>
-                    sbData.from('all_orderan').select('cs, team')
-                        .or(csFilter).not('team', 'is', null).range(from, to));
-                (teamData || []).forEach(row => {
-                    const key = norm(row.cs);
-                    if (key && row.team && !csTeamLocal[key]) csTeamLocal[key] = norm(row.team);
-                });
+                // Pakai allCS jika tersedia (lebih cepat, tidak perlu query)
+                if (allCS.length) {
+                    allCS.forEach(cs => { csTeamLocal[norm(cs.name)] = cs.team; });
+                } else {
+                    const csFilter = uniqueCSNames.map(cs => `cs.ilike.${cs.replace(/[,().%]/g, '')}`).join(',');
+                    const { data: teamData } = await fetchAll((from, to) =>
+                        sbData.from('all_orderan').select('cs, team')
+                            .or(csFilter).not('team', 'is', null).range(from, to));
+                    (teamData || []).forEach(row => {
+                        const key = norm(row.cs);
+                        if (key && row.team && !csTeamLocal[key]) csTeamLocal[key] = norm(row.team);
+                    });
+                }
             }
 
-            // Update team dropdown — sudah ter-norm, tidak ada duplikat
-            const allTeams = [...new Set(Object.values(csTeamLocal))].filter(Boolean).sort();
-            const teamSelect = document.getElementById('riwayatTeamFilter');
-            const currentTeam = teamSelect.value;
-            teamSelect.innerHTML = '<option value="">Semua Team</option>' +
-                allTeams.map(t => `<option value="${t}" ${t === currentTeam ? 'selected' : ''}>${t}</option>`).join('');
-
-            // Filter by team — pakai norm() supaya "team a" == "Team A"
-            const filteredData = teamFilter
-                ? data.filter(a => normEq(csTeamLocal[norm(a.cs_name)], teamFilter))
+            // Filter by team — support multi-pilih
+            const filteredData = selectedTeams.length
+                ? data.filter(a => selectedTeams.some(t => normEq(csTeamLocal[norm(a.cs_name)], t)))
                 : data;
 
             if (!filteredData.length) {
@@ -543,7 +578,8 @@
         }
 
         function clearRiwayatFilter() {
-            document.getElementById('riwayatTeamFilter').value = '';
+            document.querySelectorAll('#riwayatTeamCheckboxes input[type=checkbox]').forEach(cb => cb.checked = false);
+            onRiwayatTeamChange();
             document.getElementById('riwayatCrmFilter').value = '';
             document.getElementById('riwayatDateFrom').value = '';
             document.getElementById('riwayatDateTo').value = '';
