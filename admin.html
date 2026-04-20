@@ -922,51 +922,53 @@
             alert(`✅ Tersimpan!\n${assignmentList.length} CS+Produk untuk ${currentCRM}\nPeriode: ${dateFrom} - ${dateTo}`);
         }
 
-        // ── SYNC PELANGGAN DARI all_orderan KE crm_customers ──
+        // ── SYNC DARI all_orderan KE crm_customers + crm_customer_orders ──
         async function syncCustomersFromAssignment(assignmentList, crmName, dateFrom, dateTo) {
             const fromUTC = new Date(dateFrom + 'T00:00:00+07:00').toISOString();
             const toUTC   = new Date(dateTo   + 'T23:59:59+07:00').toISOString();
 
-            // Kumpulkan semua CS unik dari assignment ini
             const csNames = [...new Set(assignmentList.map(a => a.csName))];
+            console.log('[Sync] crmName:', crmName, '| csNames:', csNames, '| range:', fromUTC, '-', toUTC);
 
-            // Fetch semua order dari all_orderan untuk CS tersebut
-            const { data: orderData } = await fetchAll((from, to) =>
+            // Pakai ilike (case-insensitive) supaya "ghazi" == "Ghazi" di query
+            const csFilter = csNames.map(cs => `cs.ilike.${cs.replace(/[,().%]/g, '')}`).join(',');
+
+            // Fetch semua kolom yang dibutuhkan
+            const { data: orderData, error: fetchErr } = await fetchAll((from, to) =>
                 sbData.from('all_orderan')
-                    .select('nama, hp, cs, kelurahan, kecamatan, kabupaten, provinsi, created_at')
-                    .ilike('sumber', 'Validasi')
-                    .in('cs', csNames)
+                    .select('id, nama, hp, cs, kelurahan, kecamatan, kabupaten, provinsi, created_at, jumlah, pembayaran, resi, status, team, sumber')
+                    .or(csFilter)
                     .gte('created_at', fromUTC)
                     .lte('created_at', toUTC)
                     .range(from, to)
             );
 
-            if (!orderData || !orderData.length) return;
+            console.log('[Sync] orderData count:', orderData?.length, '| fetchErr:', fetchErr);
+            if (!orderData || !orderData.length) {
+                console.warn('[Sync] Tidak ada data order ditemukan, sync dibatalkan.');
+                return;
+            }
 
-            // Deduplikasi by hp per cs — ambil baris pertama per (hp, cs)
-            const seen = new Set();
+            // ── 1. Sync ke crm_customers (unique per pelanggan) ──
+            const seenCustomer = new Set();
             const uniqueCustomers = [];
             orderData.forEach(o => {
                 const key = (o.hp || o.nama || '') + '|' + (o.cs || '');
-                if (!key.startsWith('|') && !seen.has(key)) {
-                    seen.add(key);
+                if (!key.startsWith('|') && !seenCustomer.has(key)) {
+                    seenCustomer.add(key);
                     uniqueCustomers.push({
-                        nama:     norm(o.nama)  || null,
-                        no_hp:    o.hp          || null,
-                        desa:     o.kelurahan   || null,
-                        kec:      o.kecamatan   || null,
-                        kab:      norm(o.kabupaten) || null,
-                        prov:     norm(o.provinsi)  || null,
-                        nama_cs:  norm(o.cs)    || null,
-                        crm:      crmName,
-                        tgl:      o.created_at ? o.created_at.slice(0, 10) : null,
+                        nama:    norm(o.nama)       || null,
+                        no_hp:   o.hp               || null,
+                        desa:    o.kelurahan         || null,
+                        kec:     o.kecamatan         || null,
+                        kab:     norm(o.kabupaten)   || null,
+                        prov:    norm(o.provinsi)    || null,
+                        nama_cs: norm(o.cs)          || null,
+                        crm:     crmName,
+                        tgl:     o.created_at ? o.created_at.slice(0, 10) : null,
                     });
                 }
             });
-
-            if (!uniqueCustomers.length) return;
-
-            // Upsert — skip jika (no_hp, nama_cs) sudah ada
             const batchSize = 100;
             for (let i = 0; i < uniqueCustomers.length; i += batchSize) {
                 await sbApp.from('crm_customers')
@@ -975,6 +977,42 @@
                         ignoreDuplicates: true
                     });
             }
+
+            // ── 2. Sync ke crm_customer_orders (semua order) ──
+            const produkMap = {};
+            assignmentList.forEach(a => { produkMap[(a.csName||'').toLowerCase()] = a.produk; });
+
+            const orderRows = orderData.map(o => ({
+                orderan_id:  o.id,
+                crm_name:    crmName,
+                nama_cs:     norm(o.cs)         || null,
+                nama:        norm(o.nama)        || null,
+                no_hp:       o.hp               || null,
+                cs:          norm(o.cs)          || null,
+                produk:      (extractProduk(o.jumlah) || '').toUpperCase() || null,
+                jumlah:      o.jumlah            || null,
+                pembayaran:  o.pembayaran        || null,
+                resi:        o.resi              || null,
+                status:      o.status            || null,
+                kabupaten:   norm(o.kabupaten)   || null,
+                provinsi:    norm(o.provinsi)    || null,
+                kelurahan:   o.kelurahan         || null,
+                kecamatan:   o.kecamatan         || null,
+                team:        o.team              || null,
+                tgl_created: o.created_at        || null,
+                tgl_order:   o.created_at ? o.created_at.slice(0, 10) : null,
+            }));
+
+            console.log('[Sync] Mulai upsert', orderRows.length, 'baris ke crm_customer_orders...');
+            for (let i = 0; i < orderRows.length; i += batchSize) {
+                const { error: upsertErr } = await sbApp.from('crm_customer_orders')
+                    .upsert(orderRows.slice(i, i + batchSize), {
+                        onConflict: 'orderan_id,crm_name',
+                        ignoreDuplicates: true
+                    });
+                if (upsertErr) console.error('[Sync] Upsert error batch', i, upsertErr);
+            }
+            console.log('[Sync] Selesai sync crm_customer_orders.');
         }
 
         function renderAdminAssignmentList() {
