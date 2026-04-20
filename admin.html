@@ -547,61 +547,85 @@
         }
 
         async function downloadAssignmentCSV() {
-            const crmFilter    = document.getElementById('riwayatCrmFilter').value;
-            const assignDate   = document.getElementById('riwayatAssignDate').value;
+            const crmFilter  = document.getElementById('riwayatCrmFilter').value;
+            const assignDate = document.getElementById('riwayatAssignDate').value;
+            const teamFilter = document.getElementById('riwayatTeamFilter').value;
 
             const btn = event.target;
             btn.disabled = true;
             btn.textContent = '⏳ Mengambil data...';
 
-            // Cari assignments yang di-assign pada tanggal yang dipilih
-            // Lalu ambil order sesuai date_from/date_to assignment itu
-            let assignQuery = sbApp.from('crm_assignments').select('crm_name, date_from, date_to');
-            if (crmFilter)  assignQuery = assignQuery.eq('crm_name', crmFilter);
+            let all = [];
+
             if (assignDate) {
+                // Ada filter tanggal assign → cari assignments yang di-assign hari itu,
+                // lalu filter orders sesuai cs+produk+date_range assignment
                 const dayStart = assignDate + 'T00:00:00.000Z';
                 const dayEnd   = assignDate + 'T23:59:59.999Z';
-                assignQuery = assignQuery.gte('assigned_at', dayStart).lte('assigned_at', dayEnd);
+                let aq = sbApp.from('crm_assignments').select('crm_name, cs_name, produk, date_from, date_to')
+                    .gte('assigned_at', dayStart).lte('assigned_at', dayEnd);
+                if (crmFilter) aq = aq.eq('crm_name', crmFilter);
+                const { data: assignments } = await aq;
+
+                if (!assignments || !assignments.length) {
+                    alert('Tidak ada assignment di tanggal tersebut.');
+                    btn.disabled = false; btn.textContent = '⬇️ Download Excel';
+                    return;
+                }
+
+                // Filter assignments by team kalau dipilih
+                let filteredAssignments = assignments;
+                if (teamFilter) {
+                    // Cari CS yang masuk team ini dari allCS (sudah ter-norm)
+                    const csInTeam = allCS.length
+                        ? new Set(allCS.filter(cs => normEq(cs.team, teamFilter)).map(cs => cs.name.toLowerCase()))
+                        : null;
+                    if (csInTeam) {
+                        filteredAssignments = assignments.filter(a => csInTeam.has((a.cs_name || '').toLowerCase()));
+                    }
+                }
+                if (!filteredAssignments.length) {
+                    alert('Tidak ada assignment untuk team tersebut.');
+                    btn.disabled = false; btn.textContent = '⬇️ Download Excel';
+                    return;
+                }
+
+                const crmNames = [...new Set(filteredAssignments.map(a => a.crm_name))];
+                const minDate  = filteredAssignments.reduce((m, a) => a.date_from < m ? a.date_from : m, filteredAssignments[0].date_from);
+                const maxDate  = filteredAssignments.reduce((m, a) => a.date_to   > m ? a.date_to   : m, filteredAssignments[0].date_to);
+
+                const { data: raw, error } = await fetchAll((from, to) => {
+                    let q = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
+                    if (crmNames.length === 1) q = q.eq('crm_name', crmNames[0]);
+                    else q = q.in('crm_name', crmNames);
+                    return q.gte('tgl_order', minDate).lte('tgl_order', maxDate).range(from, to);
+                });
+                if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download Excel'; return; }
+
+                all = (raw || []).filter(o => {
+                    const produk = (o.produk || '').toUpperCase();
+                    const tgl    = o.tgl_order || '';
+                    return filteredAssignments.some(a =>
+                        normEq(a.cs_name, o.cs) &&
+                        normEq(a.produk, produk) &&
+                        tgl >= a.date_from &&
+                        tgl <= a.date_to
+                    );
+                });
+            } else {
+                // Tidak ada filter tanggal → langsung ambil semua crm_customer_orders
+                const { data: raw, error } = await fetchAll((from, to) => {
+                    let q = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
+                    if (crmFilter)  q = q.eq('crm_name', crmFilter);
+                    if (teamFilter) q = q.ilike('team', teamFilter);
+                    return q.range(from, to);
+                });
+                if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download Excel'; return; }
+                all = raw || [];
             }
-            const { data: assignments } = await assignQuery;
-
-            if (!assignments || !assignments.length) {
-                alert('Tidak ada assignment ditemukan untuk filter ini.');
-                btn.disabled = false; btn.textContent = '⬇️ Download Excel';
-                return;
-            }
-
-            // Kumpulkan semua crm_name + date range dari assignments yang cocok
-            const crmNames = [...new Set(assignments.map(a => a.crm_name))];
-            const minDate  = assignments.reduce((m, a) => a.date_from < m ? a.date_from : m, assignments[0].date_from);
-            const maxDate  = assignments.reduce((m, a) => a.date_to   > m ? a.date_to   : m, assignments[0].date_to);
-
-            // Fetch semua order dalam range, lalu filter client-side sesuai cs+produk assignment
-            // (sama persis dengan logika CRM display)
-            const { data: raw, error } = await fetchAll((from, to) => {
-                let q = sbApp.from('crm_customer_orders').select('*').order('tgl_order', { ascending: false });
-                if (crmNames.length === 1) q = q.eq('crm_name', crmNames[0]);
-                else if (crmNames.length > 1) q = q.in('crm_name', crmNames);
-                q = q.gte('tgl_order', minDate).lte('tgl_order', maxDate);
-                return q.range(from, to);
-            });
-
-            // Filter client-side: harus match cs + produk + date range dari assignment
-            const all = (raw || []).filter(o => {
-                const produk = (o.produk || '').toUpperCase();
-                const tgl    = o.tgl_order || '';
-                return assignments.some(a =>
-                    normEq(a.cs_name, o.cs) &&
-                    normEq(a.produk, produk) &&
-                    tgl >= a.date_from &&
-                    tgl <= a.date_to
-                );
-            });
-
-            if (error) { alert('Gagal: ' + error.message); btn.disabled = false; btn.textContent = '⬇️ Download Excel'; return; }
 
             if (!all.length) {
-                alert('Tidak ada data untuk didownload.\nCoba filter tanggal atau CRM dulu.');
+                alert('Tidak ada data ditemukan.');
                 btn.disabled = false; btn.textContent = '⬇️ Download Excel';
                 return;
             }
